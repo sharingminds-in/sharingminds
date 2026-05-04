@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, memo } from 'react';
-import { Plus, Book, FileText, Link, Edit, Trash2, Upload, Send, Archive, RotateCcw, AlertCircle, Clock, CheckCircle2, XCircle, FolderArchive, LayoutGrid, Eye } from 'lucide-react';
+import { Plus, Book, FileText, Link, Edit, Trash2, Upload, Send, Archive, RotateCcw, AlertCircle, Clock, CheckCircle2, XCircle, FolderArchive, LayoutGrid, Eye, Globe } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import { useContentList, useDeleteContent, useSubmitForReview, useArchiveContent
 import { CreateContentDialog } from './create-content-dialog';
 import { EditContentDialog } from './edit-content-dialog';
 import { CourseBuilder } from './course-builder';
+import { ProfileContentSelector } from './profile-content-selector';
 import { MentorContentErrorBoundary, useMentorContentErrorHandler } from './mentor-content-error-boundary';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -214,6 +215,7 @@ export const MentorContent = memo(() => {
   const [courseBuilderContent, setCourseBuilderContent] = useState<ContentType | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+  const [profileSelectorOpen, setProfileSelectorOpen] = useState(false);
 
   const { data: content = [], isLoading } = useContentList();
   const deleteContentMutation = useDeleteContent();
@@ -308,13 +310,25 @@ export const MentorContent = memo(() => {
               <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">My Content</h1>
               <p className="text-blue-200/70 text-sm mt-1.5">Create and manage learning materials for your mentees</p>
             </div>
-            <Button
-              onClick={handleCreateDialogOpen}
-              className="bg-blue-500 hover:bg-blue-400 text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-400/30 transition-all h-10 px-5 gap-2 rounded-xl font-medium"
-            >
-              <Plus className="h-4 w-4" />
-              Create Content
-            </Button>
+            <div className="flex items-center gap-2">
+              {tabCounts.approved > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => setProfileSelectorOpen(true)}
+                  className="border-blue-400/30 text-blue-200 hover:bg-blue-500/20 hover:text-white transition-all h-10 px-4 gap-2 rounded-xl font-medium bg-white/5 backdrop-blur-sm"
+                >
+                  <Globe className="h-4 w-4" />
+                  <span className="hidden sm:inline">Manage Profile</span>
+                </Button>
+              )}
+              <Button
+                onClick={handleCreateDialogOpen}
+                className="bg-blue-500 hover:bg-blue-400 text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-400/30 transition-all h-10 px-5 gap-2 rounded-xl font-medium"
+              >
+                <Plus className="h-4 w-4" />
+                Create Content
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -427,6 +441,11 @@ export const MentorContent = memo(() => {
           open={createDialogOpen}
           onOpenChange={setCreateDialogOpen}
           onSuccess={handleCreateDialogClose}
+        />
+
+        <ProfileContentSelector
+          open={profileSelectorOpen}
+          onOpenChange={setProfileSelectorOpen}
         />
 
         {/* Confirmation Dialog */}
