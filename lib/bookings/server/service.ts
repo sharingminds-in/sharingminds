@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server';
 import {
   and,
   desc,
@@ -469,7 +468,7 @@ export async function createBooking(
 ) {
   const parsed = createBookingInputSchema.parse(input);
   await ensureRole(context.userId, ['mentee']);
-  bookingRateLimit.check(new NextRequest(context.req), context.userId);
+  bookingRateLimit.check(context.req, context.userId);
 
   const scheduledAt = new Date(parsed.scheduledAt);
   const timeErrors = validateBookingTime(scheduledAt, parsed.duration);

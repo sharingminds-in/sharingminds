@@ -185,31 +185,22 @@ export function EditContentDialog({ content, open, onOpenChange }: EditContentDi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="text-xl">Edit Content</DialogTitle>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge className={getStatusColor(content.status)}>
-                  {content.status}
-                </Badge>
-                <Badge variant="outline">
-                  {content.type}
-                </Badge>
-                {isAutoSaving && (
-                  <div className="flex items-center gap-1 text-xs text-gray-500">
-                    <Clock className="h-3 w-3" />
-                    Auto-saving...
-                  </div>
-                )}
-              </div>
+          <div>
+            <DialogTitle className="text-xl">Edit Content</DialogTitle>
+            <div className="flex items-center gap-2 mt-1">
+              <Badge className={getStatusColor(content.status)}>
+                {content.status}
+              </Badge>
+              <Badge variant="outline">
+                {content.type}
+              </Badge>
+              {isAutoSaving && (
+                <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <Clock className="h-3 w-3" />
+                  Auto-saving...
+                </div>
+              )}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
           </div>
         </DialogHeader>
         
