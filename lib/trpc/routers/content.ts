@@ -14,6 +14,8 @@ import {
   deleteContentItem,
   deleteModule,
   deleteSection,
+  getAdminContent,
+  getAdminContentSummary,
   getContent,
   listAdminContent,
   listContent,
@@ -30,6 +32,7 @@ import {
 import { throwAsTRPCError } from '@/lib/trpc/router-error';
 import {
   archiveContentInputSchema,
+  adminContentSummaryInputSchema,
   createContentInputSchema,
   createContentItemInputSchema,
   createModuleInputSchema,
@@ -225,6 +228,24 @@ export const contentRouter = createTRPCRouter({
         return await listAdminContent(input);
       } catch (error) {
         throwAsTRPCError(error, 'Failed to fetch admin content');
+      }
+    }),
+  adminSummary: adminProcedure
+    .input(adminContentSummaryInputSchema)
+    .query(async ({ input }) => {
+      try {
+        return await getAdminContentSummary(input);
+      } catch (error) {
+        throwAsTRPCError(error, 'Failed to fetch admin content summary');
+      }
+    }),
+  adminGet: adminProcedure
+    .input(getContentInputSchema)
+    .query(async ({ input }) => {
+      try {
+        return await getAdminContent(input);
+      } catch (error) {
+        throwAsTRPCError(error, 'Failed to fetch admin content detail');
       }
     }),
   adminReview: adminProcedure

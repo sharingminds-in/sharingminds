@@ -8,7 +8,7 @@ const requiredExternalUrlSchema = z.string().transform((value, ctx) => {
   if (!parsedUrl.success) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: parsedUrl.error,
+      message: 'error' in parsedUrl ? parsedUrl.error : 'Please enter a valid URL',
     });
     return z.NEVER;
   }
@@ -260,9 +260,16 @@ export const listAdminContentInputSchema = z.object({
   status: z.string().optional(),
   mentorId: z.string().uuid().optional(),
   type: contentTypeSchema.or(z.literal('ALL')).optional(),
+  deleted: z.boolean().optional(),
   search: z.string().optional(),
   page: z.number().int().min(1).default(1),
   limit: z.number().int().min(1).max(100).default(20),
+});
+
+export const adminContentSummaryInputSchema = z.object({
+  mentorId: z.string().uuid().optional(),
+  type: contentTypeSchema.or(z.literal('ALL')).optional(),
+  search: z.string().optional(),
 });
 
 export const reviewAdminContentInputSchema = z.object({
@@ -293,6 +300,9 @@ export type UpdateProfileContentInput = z.infer<
   typeof updateProfileContentInputSchema
 >;
 export type ListAdminContentInput = z.infer<typeof listAdminContentInputSchema>;
+export type AdminContentSummaryInput = z.infer<
+  typeof adminContentSummaryInputSchema
+>;
 export type ReviewAdminContentInput = z.infer<
   typeof reviewAdminContentInputSchema
 >;

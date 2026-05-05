@@ -5,9 +5,11 @@ import {
   eq,
   ilike,
   inArray,
+  isNotNull,
   isNull,
   or,
   sql,
+  type SQL,
 } from 'drizzle-orm';
 
 import {
@@ -56,6 +58,7 @@ import {
 } from './schema-compat';
 import type {
   ArchiveContentInput,
+  AdminContentSummaryInput,
   CreateContentInput,
   CreateContentItemInput,
   CreateModuleInput,
@@ -77,6 +80,7 @@ import type {
 } from './schemas';
 import {
   archiveContentInputSchema,
+  adminContentSummaryInputSchema,
   createContentInputSchema,
   createContentItemInputSchema,
   createModuleInputSchema,
@@ -129,6 +133,11 @@ type ContentActor = {
   ownershipCondition: ReturnType<typeof getMentorContentOwnershipCondition>;
 };
 
+type AdminContentFilterInput = Pick<
+  ListAdminContentInput,
+  'mentorId' | 'type' | 'search'
+>;
+
 export class ContentServiceError extends Error {
   constructor(
     public readonly status: number,
@@ -171,6 +180,33 @@ function assertContentColumns(
       ', '
     )}`
   );
+}
+
+function buildAdminContentFilterConditions(input: AdminContentFilterInput) {
+  const conditions: SQL[] = [];
+
+  if (input.mentorId) {
+    conditions.push(eq(mentorContent.mentorId, input.mentorId));
+  }
+
+  if (input.type && input.type !== 'ALL') {
+    conditions.push(eq(mentorContent.type, input.type));
+  }
+
+  if (input.search) {
+    conditions.push(
+      or(
+        ilike(mentorContent.title, `%${input.search}%`),
+        ilike(mentorContent.description, `%${input.search}%`)
+      )!
+    );
+  }
+
+  return conditions;
+}
+
+function combineAdminContentConditions(conditions: SQL[]) {
+  return conditions.length > 0 ? and(...conditions) : undefined;
 }
 
 function assertContent(
@@ -568,9 +604,17 @@ export async function createContent(
   const [created] = await db
     .insert(mentorContent)
     .values({
-      ...parsed,
+      title: parsed.title!,
+      description: parsed.description,
+      type: parsed.type!,
       status: 'DRAFT',
       fileUrl: normalizeStorageValue(parsed.fileUrl),
+      fileName: parsed.fileName,
+      fileSize: parsed.fileSize,
+      mimeType: parsed.mimeType,
+      url: parsed.url,
+      urlTitle: parsed.urlTitle,
+      urlDescription: parsed.urlDescription,
       mentorId: actor.isAdmin ? null : actor.mentor?.id ?? null,
     })
     .returning(buildContentSelectShape(capabilities));
@@ -1320,27 +1364,20 @@ export async function listAdminContent(input: ListAdminContentInput) {
   const parsed = listAdminContentInputSchema.parse(input);
   const capabilities = await getContentSchemaCapabilities();
   const offset = (parsed.page - 1) * parsed.limit;
-  const conditions = [];
+  const conditions = buildAdminContentFilterConditions(parsed);
 
   if (parsed.status && parsed.status !== 'ALL') {
     conditions.push(eq(mentorContent.status, parsed.status as ContentStatus));
   }
-  if (parsed.mentorId) {
-    conditions.push(eq(mentorContent.mentorId, parsed.mentorId));
-  }
-  if (parsed.type && parsed.type !== 'ALL') {
-    conditions.push(eq(mentorContent.type, parsed.type));
-  }
-  if (parsed.search) {
+  if (parsed.deleted) {
     conditions.push(
-      or(
-        ilike(mentorContent.title, `%${parsed.search}%`),
-        ilike(mentorContent.description, `%${parsed.search}%`)
-      )!
+      capabilities.deletedAt ? isNotNull(mentorContent.deletedAt) : sql`false`
     );
+  } else if (capabilities.deletedAt) {
+    conditions.push(isNull(mentorContent.deletedAt));
   }
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const whereClause = combineAdminContentConditions(conditions);
 
   const [countResult] = await db
     .select({ count: sql<number>`count(*)` })
@@ -1358,7 +1395,12 @@ export async function listAdminContent(input: ListAdminContentInput) {
     .leftJoin(mentors, eq(mentorContent.mentorId, mentors.id))
     .leftJoin(users, eq(mentors.userId, users.id))
     .where(whereClause)
-    .orderBy(desc(mentorContent.submittedForReviewAt), desc(mentorContent.createdAt))
+    .orderBy(
+      parsed.deleted && capabilities.deletedAt
+        ? desc(mentorContent.deletedAt)
+        : desc(mentorContent.submittedForReviewAt),
+      desc(mentorContent.createdAt)
+    )
     .limit(parsed.limit)
     .offset(offset);
 
@@ -1376,6 +1418,197 @@ export async function listAdminContent(input: ListAdminContentInput) {
       limit: parsed.limit,
       totalCount: Number(countResult.count),
       totalPages: Math.ceil(Number(countResult.count) / parsed.limit),
+    },
+  };
+}
+
+async function countAdminContent(conditions: SQL[]) {
+  const [result] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(mentorContent)
+    .where(combineAdminContentConditions(conditions));
+
+  return Number(result?.count ?? 0);
+}
+
+export async function getAdminContentSummary(input: AdminContentSummaryInput) {
+  const parsed = adminContentSummaryInputSchema.parse(input);
+  const capabilities = await getContentSchemaCapabilities();
+  const baseConditions = buildAdminContentFilterConditions(parsed);
+  const activeConditions = capabilities.deletedAt
+    ? [...baseConditions, isNull(mentorContent.deletedAt)]
+    : [...baseConditions];
+  const deletedConditions = capabilities.deletedAt
+    ? [...baseConditions, isNotNull(mentorContent.deletedAt)]
+    : [...baseConditions, sql`false`];
+  const statuses: ContentStatus[] = [
+    'DRAFT',
+    'PENDING_REVIEW',
+    'APPROVED',
+    'REJECTED',
+    'ARCHIVED',
+    'FLAGGED',
+  ];
+
+  const [
+    total,
+    activeTotal,
+    deleted,
+    ...statusCounts
+  ] = await Promise.all([
+    countAdminContent(baseConditions),
+    countAdminContent(activeConditions),
+    countAdminContent(deletedConditions),
+    ...statuses.map((status) =>
+      countAdminContent([
+        ...activeConditions,
+        eq(mentorContent.status, status),
+      ])
+    ),
+  ]);
+
+  return {
+    success: true,
+    data: {
+      total,
+      activeTotal,
+      deleted,
+      byStatus: statuses.reduce(
+        (acc, status, index) => ({
+          ...acc,
+          [status]: statusCounts[index] ?? 0,
+        }),
+        {} as Record<ContentStatus, number>
+      ),
+    },
+  };
+}
+
+export async function getAdminContent(input: GetContentInput) {
+  const parsed = getContentInputSchema.parse(input);
+  const capabilities = await getContentSchemaCapabilities();
+
+  const rows = await db
+    .select({
+      content: buildContentSelectShape(capabilities),
+      mentorName: users.name,
+      mentorEmail: users.email,
+      mentorImage: users.image,
+    })
+    .from(mentorContent)
+    .leftJoin(mentors, eq(mentorContent.mentorId, mentors.id))
+    .leftJoin(users, eq(mentors.userId, users.id))
+    .where(eq(mentorContent.id, parsed.contentId))
+    .limit(1);
+
+  const row = rows[0];
+  assertContent(row, 404, 'Content not found');
+
+  const rootContent = await hydrateRootContent(
+    normalizeContentRow(row.content, capabilities)
+  );
+
+  const reviewAudit = await db
+    .select({
+      id: contentReviewAudit.id,
+      action: contentReviewAudit.action,
+      previousStatus: contentReviewAudit.previousStatus,
+      newStatus: contentReviewAudit.newStatus,
+      reviewedBy: contentReviewAudit.reviewedBy,
+      note: contentReviewAudit.note,
+      createdAt: contentReviewAudit.createdAt,
+    })
+    .from(contentReviewAudit)
+    .where(eq(contentReviewAudit.contentId, parsed.contentId))
+    .orderBy(desc(contentReviewAudit.createdAt))
+    .limit(25);
+
+  if (rootContent.type !== 'COURSE') {
+    return {
+      success: true,
+      data: {
+        content: rootContent,
+        mentorName: row.mentorName ?? (rootContent.mentorId ? 'Unknown mentor' : 'Platform'),
+        mentorEmail: row.mentorEmail ?? '',
+        mentorImage: row.mentorImage ?? null,
+        reviewAudit,
+      },
+    };
+  }
+
+  const courseRows = await db
+    .select()
+    .from(courses)
+    .where(eq(courses.contentId, parsed.contentId))
+    .limit(1);
+
+  const course = courseRows[0];
+
+  if (!course) {
+    return {
+      success: true,
+      data: {
+        content: rootContent,
+        mentorName: row.mentorName ?? (rootContent.mentorId ? 'Unknown mentor' : 'Platform'),
+        mentorEmail: row.mentorEmail ?? '',
+        mentorImage: row.mentorImage ?? null,
+        reviewAudit,
+      },
+    };
+  }
+
+  const modules = await db
+    .select()
+    .from(courseModules)
+    .where(eq(courseModules.courseId, course.id))
+    .orderBy(courseModules.orderIndex);
+
+  const modulesWithSections = await Promise.all(
+    modules.map(async (module) => {
+      const sections = await db
+        .select()
+        .from(courseSections)
+        .where(eq(courseSections.moduleId, module.id))
+        .orderBy(courseSections.orderIndex);
+
+      const sectionsWithContent = await Promise.all(
+        sections.map(async (section) => {
+          const contentItems = await db
+            .select()
+            .from(sectionContentItems)
+            .where(eq(sectionContentItems.sectionId, section.id))
+            .orderBy(sectionContentItems.orderIndex);
+
+          return {
+            ...section,
+            contentItems: await Promise.all(
+              contentItems.map((item) => hydrateContentItem(item))
+            ),
+          };
+        })
+      );
+
+      return {
+        ...module,
+        sections: sectionsWithContent,
+      };
+    })
+  );
+
+  return {
+    success: true,
+    data: {
+      content: {
+        ...rootContent,
+        course: {
+          ...(await hydrateCourse(course)),
+          modules: modulesWithSections,
+        },
+      },
+      mentorName: row.mentorName ?? (rootContent.mentorId ? 'Unknown mentor' : 'Platform'),
+      mentorEmail: row.mentorEmail ?? '',
+      mentorImage: row.mentorImage ?? null,
+      reviewAudit,
     },
   };
 }
