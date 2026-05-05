@@ -287,7 +287,7 @@ export async function checkFeatureAccess(
     };
 
   } catch (error) {
-    // Re-throw with context
+    console.error('[subscriptions] checkFeatureAccess failed:', { featureKey, error });
     throw new Error(`Failed to check feature access for '${featureKey}': ${error}`);
   }
 }

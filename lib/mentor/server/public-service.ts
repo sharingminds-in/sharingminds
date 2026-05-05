@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, or } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, or, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { listActiveSubscriptionUserIds } from '@/lib/db/queries/subscriptions';
@@ -120,15 +120,34 @@ export async function listPublicMentors(
     whereClauses.push(ilike(mentors.industry, `%${industry}%`));
   }
 
-  if (q) {
+  if (q && !requiresAiEligibilityFilters) {
     whereClauses.push(
       or(
         ilike(users.name, `%${q}%`),
         ilike(mentors.title, `%${q}%`),
-        ilike(mentors.company, `%${q}%`)
+        ilike(mentors.company, `%${q}%`),
+        ilike(mentors.expertise, `%${q}%`),
+        ilike(mentors.headline, `%${q}%`),
+        ilike(mentors.about, `%${q}%`),
+        sql`EXISTS (SELECT 1 FROM ${courses} WHERE ${courses.ownerId} = ${mentors.id} AND ${courses.tags} ILIKE ${'%' + q + '%'})`,
       )
     );
   }
+
+  const qLike = `%${q}%`;
+
+  // Tiered relevance: 4 = exact skill token match, 3 = expertise/headline substring,
+  // 2 = about/company substring, 1 = name/title substring, 0 = no text match (e.g. course tag only)
+  const relevanceExpr = sql<number>`(CASE
+    WHEN ${q} <> '' AND EXISTS (
+      SELECT 1 FROM unnest(string_to_array(COALESCE(${mentors.expertise}, ''), ',')) AS _s
+      WHERE trim(lower(_s)) = lower(${q})
+    ) THEN 4
+    WHEN ${q} <> '' AND (${mentors.expertise} ILIKE ${qLike} OR ${mentors.headline} ILIKE ${qLike}) THEN 3
+    WHEN ${q} <> '' AND (${mentors.about} ILIKE ${qLike} OR ${mentors.company} ILIKE ${qLike}) THEN 2
+    WHEN ${q} <> '' AND (${users.name} ILIKE ${qLike} OR ${mentors.title} ILIKE ${qLike}) THEN 1
+    ELSE 0
+  END)`;
 
   const rows = await db
     .select({
@@ -155,7 +174,7 @@ export async function listPublicMentors(
     .from(mentors)
     .innerJoin(users, eq(mentors.userId, users.id))
     .where(and(...whereClauses))
-    .orderBy(desc(mentors.createdAt))
+    .orderBy(desc(relevanceExpr), desc(mentors.createdAt))
     .limit(pageSize)
     .offset(offset);
 

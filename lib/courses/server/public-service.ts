@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, like, or, sql, avg } from 'drizzle-orm';
+import { and, asc, avg, count, desc, eq, ilike, or, sql } from 'drizzle-orm';
 
 import { PUBLIC_COURSE_STATUS, canViewCourseDetail } from '@/lib/courses/status';
 import { db } from '@/lib/db';
@@ -100,18 +100,33 @@ export async function listPublicCourses(input: ListPublicCoursesInput) {
       courseReviews,
       and(eq(courseReviews.courseId, courses.id), eq(courseReviews.isPublished, true))
     )
-    .groupBy(courses.id, mentorContent.id, mentors.id, users.id);
+    .groupBy(courses.id, mentorContent.id, mentors.id, users.id)
+    .$dynamic();
 
   const conditions = [eq(mentorContent.status, PUBLIC_COURSE_STATUS)];
 
   if (search) {
+    // Also search individual tokens so a long query like "interested in data science"
+    // still matches a tag stored as ["data science"]
+    const searchTokens = search.trim().split(/\s+/).filter((w) => w.length >= 4);
+    const extraTagCond =
+      searchTokens.length > 1
+        ? sql`(${searchTokens
+            .flatMap((t) => [
+              sql`${courses.tags} ilike ${'%' + t + '%'}`,
+              sql`${courses.platformTags} ilike ${'%' + t + '%'}`,
+            ])
+            .reduce((a, b) => sql`${a} OR ${b}`)})`
+        : undefined;
+
     conditions.push(
       or(
-        like(mentorContent.title, `%${search}%`),
-        like(mentorContent.description, `%${search}%`),
-        like(courses.tags, `%${search}%`),
-        like(courses.platformTags, `%${search}%`)
-      )
+        ilike(mentorContent.title, `%${search}%`),
+        ilike(mentorContent.description, `%${search}%`),
+        ilike(courses.tags, `%${search}%`),
+        ilike(courses.platformTags, `%${search}%`),
+        extraTagCond
+      )!
     );
   }
 
@@ -133,7 +148,7 @@ export async function listPublicCourses(input: ListPublicCoursesInput) {
 
   if (mentorId) {
     conditions.push(
-      and(eq(courses.ownerType, 'MENTOR'), eq(mentorContent.mentorId, mentorId))
+      and(eq(courses.ownerType, 'MENTOR'), eq(mentorContent.mentorId, mentorId))!
     );
   }
 

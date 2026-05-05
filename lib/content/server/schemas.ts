@@ -88,7 +88,7 @@ export const coursePayloadSchema = z.object({
     .optional()
     .transform((value) => (value && value !== '' ? value : undefined)),
   currency: z.string().default('USD'),
-  thumbnailUrl: z.string().optional(),
+  thumbnailUrl: z.string().nullish(),
   category: z.string().min(1, 'Category is required'),
   tags: z.array(z.string()).default([]),
   platformTags: z.array(z.string()).default([]),

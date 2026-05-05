@@ -11,6 +11,7 @@ services:
       - '5432:5432'
     volumes:
       - sharing-minds-postgres-data:/var/lib/postgresql
+      - .:/dumps:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres -d sharing_minds']
       interval: 10s

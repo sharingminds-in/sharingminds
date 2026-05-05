@@ -21,6 +21,28 @@ interface Message {
   timestamp: Date
 }
 
+interface SuggestedCourse {
+  id: string
+  title: string | null
+  description: string | null
+  difficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | null
+  duration: number | null
+  price: string | null
+  currency: string | null
+  thumbnailUrl: string | null
+  category: string | null
+  enrollmentCount: number | null
+  avgRating: number
+  reviewCount: number
+  mentor: {
+    id: string | null
+    name: string | null
+    image: string | null
+    title: string | null
+    company: string | null
+  } | null
+}
+
 interface DbMentor {
   id: string
   userId: string
@@ -58,6 +80,9 @@ export function HeroSection() {
   const [isAiTyping, setIsAiTyping] = useState(false)
   const [currentAiMessage, setCurrentAiMessage] = useState("")
   const [isSearchingMentors, setIsSearchingMentors] = useState(false)
+  const [isChatLimitReached, setIsChatLimitReached] = useState(false)
+  const [suggestedContent, setSuggestedContent] = useState<SuggestedCourse[]>([])
+  const [showContent, setShowContent] = useState(false)
 
   const [dbMentors, setDbMentors] = useState<DbMentor[]>([])
   const [showMentors, setShowMentors] = useState(false)
@@ -112,7 +137,7 @@ export function HeroSection() {
 
   const logMentorExposure = async (mentorIds: string[]) => {
     try {
-      await saveMessageToDB('system', 'Mentor recommendations shown', null, {
+      await saveMessageToDB('ai', 'Mentor recommendations shown', null, {
         eventType: 'mentors_shown',
         mentorIds,
       });
@@ -169,6 +194,10 @@ export function HeroSection() {
     setCurrentAiMessage("")
     let fullResponseText = "";
     let toolCallDetected = false;
+    let toolCallQuery = "";
+    let contentToolCallDetected = false;
+    let contentToolCallQuery = "";
+    let contentToolCallDifficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | undefined;
 
     try {
       const body = JSON.stringify({
@@ -187,7 +216,8 @@ export function HeroSection() {
         if (res.status === 401) {
           errorMessage = "Please log in to use the AI assistant.";
         } else if (res.status === 403) {
-          errorMessage = "AI assistant access is not included in your plan.";
+          const backendText = await res.text().catch(() => "");
+          errorMessage = backendText || "AI assistant access is not included in your plan.";
         } else if (res.status >= 500) {
           errorMessage = "AI service is unavailable. Please try again shortly.";
         }
@@ -205,37 +235,70 @@ export function HeroSection() {
         return;
       }
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
+      const contentType = res.headers.get('content-type') ?? '';
       let partialJson = "";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      if (contentType.includes('application/json')) {
+        const deflectionResponse = await res.json();
+        fullResponseText = deflectionResponse.text || "";
+        if (deflectionResponse.tool_call?.name === 'find_mentors') {
+          toolCallDetected = true;
+          toolCallQuery = deflectionResponse.tool_call.arguments?.query ?? "";
+        }
+        if (deflectionResponse.content_tool_call?.name === 'suggest_content') {
+          contentToolCallDetected = true;
+          contentToolCallQuery = deflectionResponse.content_tool_call.arguments?.query ?? "";
+          contentToolCallDifficulty = deflectionResponse.content_tool_call.arguments?.difficulty;
+        }
+        setIsChatLimitReached(true);
+      } else {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
 
-        partialJson += decoder.decode(value, { stream: true });
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          partialJson += decoder.decode(value, { stream: true });
+
+          try {
+            const textMatch = partialJson.match(/"text"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+            if (textMatch && textMatch[1]) {
+              const streamingText = textMatch[1].replace(/\\n/g, "\n").replace(/\\"/g, '"');
+              setCurrentAiMessage(streamingText);
+            }
+
+            const finalJson = JSON.parse(partialJson);
+            if (finalJson.tool_call?.name === 'find_mentors') {
+              toolCallDetected = true;
+              toolCallQuery = finalJson.tool_call.arguments?.query ?? "";
+            }
+            if (finalJson.content_tool_call?.name === 'suggest_content') {
+              contentToolCallDetected = true;
+              contentToolCallQuery = finalJson.content_tool_call.arguments?.query ?? "";
+              contentToolCallDifficulty = finalJson.content_tool_call.arguments?.difficulty;
+            }
+          } catch (e) {
+            // JSON parsing in progress
+          }
+        }
 
         try {
-          const textMatch = partialJson.match(/"text"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-          if (textMatch && textMatch[1]) {
-            const streamingText = textMatch[1].replace(/\\n/g, "\n").replace(/\\"/g, '"');
-            setCurrentAiMessage(streamingText);
-          }
-
-          const finalJson = JSON.parse(partialJson);
-          if (finalJson.tool_call && finalJson.tool_call.name === 'find_mentors') {
+          const finalResponse = JSON.parse(partialJson);
+          fullResponseText = finalResponse.text || "";
+          // Re-check tool calls in final parse in case stream loop missed them
+          if (!toolCallDetected && finalResponse.tool_call?.name === 'find_mentors') {
             toolCallDetected = true;
+            toolCallQuery = finalResponse.tool_call.arguments?.query ?? "";
+          }
+          if (!contentToolCallDetected && finalResponse.content_tool_call?.name === 'suggest_content') {
+            contentToolCallDetected = true;
+            contentToolCallQuery = finalResponse.content_tool_call.arguments?.query ?? "";
+            contentToolCallDifficulty = finalResponse.content_tool_call.arguments?.difficulty;
           }
         } catch (e) {
-          // JSON parsing in progress
+          fullResponseText = currentAiMessage;
         }
-      }
-
-      try {
-        const finalResponse = JSON.parse(partialJson);
-        fullResponseText = finalResponse.text || "";
-      } catch (e) {
-        fullResponseText = currentAiMessage;
       }
 
       const aiMessage: Message = {
@@ -248,10 +311,14 @@ export function HeroSection() {
       await saveMessageToDB('ai', aiMessage.content, userMessageId);
 
       if (toolCallDetected) {
-        const mentors = await fetchMentorsFromApi(true);
+        const mentors = await fetchMentorsFromApi(true, toolCallQuery);
         if (mentors && mentors.length) {
           await logMentorExposure(mentors.map((mentor) => mentor.id));
         }
+      }
+
+      if (contentToolCallDetected) {
+        await fetchContentFromApi(contentToolCallQuery || toolCallQuery, contentToolCallDifficulty);
       }
 
     } catch (err) {
@@ -270,7 +337,7 @@ export function HeroSection() {
   };
 
   // Fetch real mentors from your public route
-  const fetchMentorsFromApi = async (useAiSearch = false): Promise<DbMentor[] | null> => {
+  const fetchMentorsFromApi = async (useAiSearch = false, query?: string): Promise<DbMentor[] | null> => {
     try {
       setIsSearchingMentors(true)
       const requestMentors = async (aiEnabled: boolean) => {
@@ -279,6 +346,7 @@ export function HeroSection() {
           pageSize: 12,
           availableOnly: true,
           aiFilterOnly: aiEnabled || undefined,
+          q: query || undefined,
         });
       };
 
@@ -305,6 +373,41 @@ export function HeroSection() {
     }
   }
 
+  const resetChat = () => {
+    const newSessionId = uuidv4();
+    localStorage.setItem('ai_chatbot_session_id', newSessionId);
+    setChatSessionId(newSessionId);
+    setMessages([]);
+    setInputValue('');
+    setIsChatLimitReached(false);
+    setDbMentors([]);
+    setShowMentors(false);
+    setSuggestedContent([]);
+    setShowContent(false);
+    setCurrentMentorIndex(0);
+  };
+
+  const fetchContentFromApi = async (query?: string, difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED') => {
+    try {
+      const baseParams = { limit: 3, sortBy: 'enrollment_count' as const, sortOrder: 'desc' as const };
+      const payload = await trpcClient.public.listCourses.query({
+        ...baseParams,
+        search: query || undefined,
+        difficulty: difficulty || undefined,
+      });
+      const list = (payload?.courses ?? []) as SuggestedCourse[];
+      // Only surface courses when relevant results were actually found
+      if (list.length > 0) {
+        setSuggestedContent(list);
+        setShowContent(true);
+      }
+      return list;
+    } catch (e) {
+      console.error('Error fetching content:', e);
+      return null;
+    }
+  }
+
   const handleSubmit = async () => {
     if (inputValue.trim() && !isAiTyping && !isSearchingMentors) {
       if (!isChatExpanded) {
@@ -322,7 +425,26 @@ export function HeroSection() {
 
       setMessages(prev => [...prev, userMessage])
       setInputValue("")
-      await saveMessageToDB('user', currentInput)
+
+      try {
+        await saveMessageToDB('user', currentInput)
+      } catch (err: any) {
+        const isLimitError = err?.data?.httpStatus === 403;
+        const errorContent = isLimitError
+          ? "You've reached your chat limit! Let me find the best mentor matches for you instead. 🚀"
+          : "Unable to send your message right now. Please try again.";
+
+        setMessages(prev => [...prev, { id: uuidv4(), type: 'ai', content: errorContent, timestamp: new Date() }]);
+
+        if (isLimitError) {
+          setIsChatLimitReached(true);
+          const mentors = await fetchMentorsFromApi(true, currentInput);
+          if (mentors?.length) await logMentorExposure(mentors.map(m => m.id));
+          await fetchContentFromApi(currentInput);
+        }
+        return;
+      }
+
       await simulateAiResponse(currentInput, userMessage.id)
     }
   }
@@ -606,13 +728,13 @@ export function HeroSection() {
                         onBlur={() => setIsFocused(false)}
                         onKeyDown={handleKeyPress}
                         rows={1}
-                        disabled={isAiTyping || isSearchingMentors}
+                        disabled={isAiTyping || isSearchingMentors || isChatLimitReached}
                         className={`w-full bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 rounded-xl px-4 py-3.5 text-base resize-none transition-all ${isChatExpanded ? 'min-h-[44px]' : 'min-h-[56px] text-lg'
                           } disabled:opacity-50`}
                         style={{ scrollbarWidth: 'none' }}
                       />
                       {/* Animated placeholder */}
-                      {!inputValue && !isFocused && (
+                      {!inputValue && !isFocused && !isChatLimitReached && (
                         <div className="absolute inset-0 flex items-center px-4 pointer-events-none">
                           <span className={`text-slate-500 ${isChatExpanded ? 'text-base' : 'text-lg'}`}>
                             {currentPlaceholder}
@@ -620,17 +742,31 @@ export function HeroSection() {
                           </span>
                         </div>
                       )}
+                      {isChatLimitReached && (
+                        <div className="absolute inset-0 flex items-center px-4 pointer-events-none">
+                          <span className="text-slate-500 text-sm">Connect with a mentor to continue your journey</span>
+                        </div>
+                      )}
                     </div>
-                    <Button
-                      onClick={handleSubmit}
-                      disabled={!inputValue.trim() || isAiTyping || isSearchingMentors}
-                      className={`h-12 w-12 rounded-xl transition-all duration-300 ${inputValue.trim() && !isAiTyping && !isSearchingMentors
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg shadow-blue-500/25'
-                          : 'bg-white/10 text-slate-500'
-                        }`}
-                    >
-                      <Send className="w-5 h-5" />
-                    </Button>
+                    {isChatLimitReached ? (
+                      <Button
+                        onClick={resetChat}
+                        className="h-12 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-sm shadow-lg shadow-blue-500/25 whitespace-nowrap"
+                      >
+                        New Chat
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleSubmit}
+                        disabled={!inputValue.trim() || isAiTyping || isSearchingMentors}
+                        className={`h-12 w-12 rounded-xl transition-all duration-300 ${inputValue.trim() && !isAiTyping && !isSearchingMentors
+                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg shadow-blue-500/25'
+                            : 'bg-white/10 text-slate-500'
+                          }`}
+                      >
+                        <Send className="w-5 h-5" />
+                      </Button>
+                    )}
                   </div>
 
                   {/* Hints */}
@@ -754,6 +890,93 @@ export function HeroSection() {
                   })}
                 </div>
               )}
+            </Card>
+          </div>
+        </section>
+      )}
+
+      {showContent && suggestedContent.length > 0 && (
+        <section className="w-full px-4 sm:px-6 lg:px-8 py-12 bg-slate-900/50 border-t border-white/5">
+          <div className="max-w-7xl mx-auto">
+            <Card className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+              <div className="flex items-center gap-3 mb-6">
+                <Sparkles className="w-5 h-5 text-purple-400" />
+                <div>
+                  <h2 className="text-xl font-semibold text-white">Recommended Resources</h2>
+                  <p className="text-sm text-slate-400">Courses and content matched to your goal</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {suggestedContent.map((course) => {
+                  const difficultyColors: Record<string, string> = {
+                    BEGINNER: 'text-green-400 border-green-500/20 bg-green-500/10',
+                    INTERMEDIATE: 'text-yellow-400 border-yellow-500/20 bg-yellow-500/10',
+                    ADVANCED: 'text-red-400 border-red-500/20 bg-red-500/10',
+                  }
+                  const difficultyClass = course.difficulty ? difficultyColors[course.difficulty] : 'text-slate-400 border-white/10 bg-white/5'
+                  const price = course.price && parseFloat(course.price) > 0
+                    ? `${course.currency ?? 'USD'} ${parseFloat(course.price).toFixed(0)}`
+                    : 'Free'
+
+                  return (
+                    <a
+                      key={course.id}
+                      href={`/courses/${course.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 overflow-hidden transition-all duration-300 hover:border-purple-500/30 flex flex-col cursor-pointer"
+                    >
+                      {course.thumbnailUrl ? (
+                        <img
+                          src={course.thumbnailUrl}
+                          alt={course.title ?? ''}
+                          className="w-full h-36 object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-36 bg-gradient-to-br from-purple-600/30 to-blue-600/30 flex items-center justify-center">
+                          <Sparkles className="w-8 h-8 text-purple-400 opacity-50" />
+                        </div>
+                      )}
+
+                      <div className="p-4 flex flex-col gap-3 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-semibold text-white text-sm leading-snug line-clamp-2">
+                            {course.title ?? 'Untitled Course'}
+                          </h3>
+                          {course.difficulty && (
+                            <span className={`shrink-0 px-2 py-0.5 rounded-md text-xs border ${difficultyClass}`}>
+                              {course.difficulty}
+                            </span>
+                          )}
+                        </div>
+
+                        {course.description && (
+                          <p className="text-xs text-slate-400 line-clamp-2">{course.description}</p>
+                        )}
+
+                        {course.mentor?.name && (
+                          <p className="text-xs text-slate-500">By {course.mentor.name}</p>
+                        )}
+
+                        <div className="flex items-center justify-between pt-3 border-t border-white/10 mt-auto">
+                          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                            <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                            <span>{Number(course.avgRating).toFixed(1)}</span>
+                            {course.enrollmentCount ? (
+                              <>
+                                <span className="text-slate-600">•</span>
+                                <span>{course.enrollmentCount} enrolled</span>
+                              </>
+                            ) : null}
+                          </div>
+                          <span className="text-sm font-semibold text-white">{price}</span>
+                        </div>
+                      </div>
+                    </a>
+                  )
+                })}
+              </div>
             </Card>
           </div>
         </section>

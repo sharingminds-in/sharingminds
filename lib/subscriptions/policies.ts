@@ -22,6 +22,7 @@ export type SubscriptionPolicyAction =
   | 'mentor.ai.visibility'
   | 'ai.chat.access'
   | 'ai.chat.message'
+  | 'ai.chat.max_user_messages'
   | 'courses.access'
   | 'courses.free_limit'
   | 'analytics.mentor'
@@ -180,6 +181,16 @@ export const ACTION_POLICIES: Record<SubscriptionPolicyAction, ActionPolicyDefin
     defaultDelta: { count: 1 },
     defaultResourceType: 'chat_message',
     defaultFailureMessage: 'Message limit reached',
+  },
+  'ai.chat.max_user_messages': {
+    action: 'ai.chat.max_user_messages',
+    featureKey: FEATURE_KEYS.AI_CHAT_MAX_USER_MESSAGES,
+    audience: 'mentee',
+    actorRole: 'mentee',
+    metered: true,
+    defaultDelta: { count: 1 },
+    defaultResourceType: 'chat_message',
+    defaultFailureMessage: 'Chat message limit reached',
   },
   'courses.access': {
     action: 'courses.access',
