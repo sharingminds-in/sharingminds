@@ -66,15 +66,21 @@ export async function saveChatbotMessage(
       });
     } catch (error) {
       if (isSubscriptionPolicyError(error)) {
-        throw new AppHttpError(
-          error.status,
-          typeof error.payload?.error === 'string'
-            ? error.payload.error
-            : 'Message limit reached'
-        );
+        if (error.status === 403) {
+          // Hard limit reached — block the message
+          throw new AppHttpError(
+            403,
+            typeof error.payload?.error === 'string'
+              ? error.payload.error
+              : 'Message limit reached'
+          );
+        }
+        // 500 = metering infrastructure failure (misconfigured feature, DB error)
+        // ai.chat.access already passed, so allow the message rather than blocking the user
+        console.error('[chatbot] message metering check failed, allowing message through:', error.payload?.details);
+      } else {
+        throw error;
       }
-
-      throw error;
     }
   }
 

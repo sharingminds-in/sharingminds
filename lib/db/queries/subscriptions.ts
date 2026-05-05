@@ -230,8 +230,8 @@ export async function getCurrentUsageForFeature(
       and(
         eq(subscriptionUsageTracking.subscriptionId, subscriptionId),
         eq(subscriptionUsageTracking.featureId, featureId),
-        sql`${subscriptionUsageTracking.periodStart} <= ${now}`,
-        sql`${subscriptionUsageTracking.periodEnd} >= ${now}`
+        sql`${subscriptionUsageTracking.periodStart} <= ${now.toISOString()}`,
+        sql`${subscriptionUsageTracking.periodEnd} >= ${now.toISOString()}`
       )
     )
     .limit(1);
@@ -1317,8 +1317,8 @@ export async function recordUsageEventAndUpdateTracking(input: {
         ${input.minutesDelta},
         ${input.amountDelta},
         '{}'::jsonb,
-        ${periodStart},
-        ${periodEnd},
+        ${periodStart.toISOString()},
+        ${periodEnd.toISOString()},
         'month',
         1,
         false,

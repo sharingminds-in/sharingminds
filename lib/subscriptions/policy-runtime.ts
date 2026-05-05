@@ -1,5 +1,6 @@
 import {
   checkFeatureAccess,
+  getPlanFeatures,
   trackFeatureUsage,
   type FeatureAccess,
   type SubscriptionContext,
@@ -146,5 +147,29 @@ export async function consumeFeature(input: ConsumeFeatureInput): Promise<void> 
 
 export function isSubscriptionPolicyError(error: unknown): error is SubscriptionPolicyError {
   return error instanceof SubscriptionPolicyError;
+}
+
+export interface GetFeaturePlanLimitInput extends ResolvePolicyContextOptions {
+  action: SubscriptionPolicyAction;
+  userId: string;
+}
+
+/**
+ * Returns the plan's configured count limit for an action without checking usage.
+ * Use this for session-scoped limits where you want to compare against a local count
+ * rather than global DB-tracked usage.
+ * Returns null if the feature is not in the plan or has no count limit set.
+ */
+export async function getFeaturePlanLimit(input: GetFeaturePlanLimitInput): Promise<number | null> {
+  const policy = ACTION_POLICIES[input.action];
+  const context = resolvePolicyContext(input.action, input);
+
+  try {
+    const features = await getPlanFeatures(input.userId, context);
+    const feature = features.find(f => f.feature_key === policy.featureKey);
+    return feature?.limit_count ?? null;
+  } catch {
+    return null;
+  }
 }
 
