@@ -1,5 +1,21 @@
 import { z } from 'zod';
 
+import { parseExternalUrl } from '@/lib/content/url';
+
+const requiredExternalUrlSchema = z.string().transform((value, ctx) => {
+  const parsedUrl = parseExternalUrl(value);
+
+  if (!parsedUrl.success) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: parsedUrl.error,
+    });
+    return z.NEVER;
+  }
+
+  return parsedUrl.url;
+});
+
 export const contentTypeSchema = z.enum(['COURSE', 'FILE', 'URL']);
 export const contentStatusSchema = z.enum([
   'DRAFT',
@@ -40,7 +56,7 @@ export const createContentInputSchema = z.object({
   fileName: z.string().optional(),
   fileSize: z.number().optional(),
   mimeType: z.string().optional(),
-  url: z.string().optional(),
+  url: requiredExternalUrlSchema.optional(),
   urlTitle: z.string().optional(),
   urlDescription: z.string().optional(),
 });

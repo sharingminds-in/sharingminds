@@ -1,17 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { FileText, Upload, X, Save, Eye, Clock, Loader2, User, BarChart3 } from 'lucide-react';
+import { FileText, Upload, X, Save, Eye, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
@@ -38,7 +38,7 @@ export function EditContentDialog({ content, open, onOpenChange }: EditContentDi
   const [activeTab, setActiveTab] = useState('details');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const hasFileManagement = content.type === 'FILE';
   
   const updateContentMutation = useUpdateContent();
   const uploadFileMutation = useUploadFile();
@@ -53,45 +53,6 @@ export function EditContentDialog({ content, open, onOpenChange }: EditContentDi
       urlDescription: content.urlDescription || '',
     },
   });
-  
-  // Auto-save functionality
-  useEffect(() => {
-    const subscription = form.watch((value, { name }) => {
-      if (name && !isAutoSaving) {
-        const timeoutId = setTimeout(() => {
-          handleAutoSave(value as EditFormData);
-        }, 2000);
-        
-        return () => clearTimeout(timeoutId);
-      }
-    });
-    
-    return () => subscription.unsubscribe();
-  }, [form.watch, isAutoSaving]);
-  
-  const handleAutoSave = async (data: EditFormData) => {
-    try {
-      setIsAutoSaving(true);
-      await updateContentMutation.mutateAsync({
-        id: content.id,
-        data: {
-          title: data.title,
-          description: data.description,
-          // Only include URL fields if this is a URL type content
-          ...(content.type === 'URL' ? {
-            url: data.url,
-            urlTitle: data.urlTitle,
-            urlDescription: data.urlDescription,
-          } : {}),
-        },
-      });
-    } catch (error) {
-      // Silent fail for auto-save
-      console.error('Auto-save failed:', error);
-    } finally {
-      setIsAutoSaving(false);
-    }
-  };
   
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -194,23 +155,16 @@ export function EditContentDialog({ content, open, onOpenChange }: EditContentDi
               <Badge variant="outline">
                 {content.type}
               </Badge>
-              {isAutoSaving && (
-                <div className="flex items-center gap-1 text-xs text-gray-500">
-                  <Clock className="h-3 w-3" />
-                  Auto-saving...
-                </div>
-              )}
             </div>
           </div>
         </DialogHeader>
         
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className={`grid w-full ${hasFileManagement ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <TabsTrigger value="details">Content Details</TabsTrigger>
-            <TabsTrigger value="media" disabled={content.type === 'COURSE'}>
-              {content.type === 'FILE' ? 'File Management' : 'URL Settings'}
-            </TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            {hasFileManagement && (
+              <TabsTrigger value="media">File Management</TabsTrigger>
+            )}
           </TabsList>
           
           <TabsContent value="details" className="space-y-6">
@@ -322,7 +276,7 @@ export function EditContentDialog({ content, open, onOpenChange }: EditContentDi
                 
                 {content.type === 'URL' && (
                   <div className="space-y-4 pt-4 border-t">
-                    <h3 className="font-medium">URL Settings</h3>
+                    <h3 className="font-medium">Link Details</h3>
                     
                     <FormField
                       control={form.control}
@@ -403,8 +357,8 @@ export function EditContentDialog({ content, open, onOpenChange }: EditContentDi
             </Form>
           </TabsContent>
           
-          <TabsContent value="media" className="space-y-6">
-            {content.type === 'FILE' && (
+          {hasFileManagement && (
+            <TabsContent value="media" className="space-y-6">
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold mb-4">File Management</h3>
@@ -499,64 +453,8 @@ export function EditContentDialog({ content, open, onOpenChange }: EditContentDi
                   </div>
                 </div>
               </div>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="analytics" className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Content Analytics</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
-                      <Eye className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm font-medium">Views</span>
-                    </div>
-                    <div className="text-2xl font-bold mt-2">0</div>
-                    <div className="text-xs text-gray-500">Coming soon</div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-green-600" />
-                      <span className="text-sm font-medium">Engagements</span>
-                    </div>
-                    <div className="text-2xl font-bold mt-2">0</div>
-                    <div className="text-xs text-gray-500">Coming soon</div>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-purple-600" />
-                      <span className="text-sm font-medium">Performance</span>
-                    </div>
-                    <div className="text-2xl font-bold mt-2">-</div>
-                    <div className="text-xs text-gray-500">Coming soon</div>
-                  </CardContent>
-                </Card>
-              </div>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Analytics Dashboard</CardTitle>
-                  <CardDescription>
-                    Detailed analytics and insights will be available soon
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8 text-gray-500">
-                    <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Analytics features coming in the next update</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+            </TabsContent>
+          )}
         </Tabs>
       </DialogContent>
     </Dialog>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, memo } from 'react';
-import { Plus, Book, FileText, Link, Edit, Trash2, Upload, Send, Archive, RotateCcw, AlertCircle, Clock, CheckCircle2, XCircle, FolderArchive, LayoutGrid, Eye, Globe } from 'lucide-react';
+import { Plus, Book, FileText, Link, Edit, Trash2, Upload, Send, Archive, RotateCcw, AlertCircle, Clock, CheckCircle2, XCircle, FolderArchive, LayoutGrid, Eye, Globe, Loader2 } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useContentList, useDeleteContent, useSubmitForReview, useArchiveContent, MentorContent as ContentType } from '@/hooks/queries/use-content-queries';
 import { CreateContentDialog } from './create-content-dialog';
+import { ContentDetailDialog } from './content-detail-dialog';
 import { EditContentDialog } from './edit-content-dialog';
 import { CourseBuilder } from './course-builder';
 import { ProfileContentSelector } from './profile-content-selector';
@@ -30,6 +31,14 @@ type ConfirmAction = {
   actionLabel: string;
   variant: 'default' | 'destructive';
   onConfirm: () => void;
+} | null;
+
+type ContentActionKind = 'delete' | 'submit' | 'archive' | 'restore';
+
+type PendingContentAction = {
+  id: string;
+  kind: ContentActionKind;
+  label: string;
 } | null;
 
 const statusConfig: Record<string, { color: string; bg: string; border: string; icon: React.ReactNode; label: string }> = {
@@ -63,9 +72,12 @@ interface ContentCardProps {
   onSubmitForReview: (id: string) => void;
   onArchive: (id: string, currentStatus: string) => void;
   onRestore: (id: string, statusBeforeArchive?: string) => void;
+  onOpenDetail: (content: ContentType) => void;
+  actionsDisabled: boolean;
+  pendingAction: PendingContentAction;
 }
 
-const ContentCard = memo(({ content, onEdit, onDelete, onOpenCourse, onSubmitForReview, onArchive, onRestore }: ContentCardProps) => {
+const ContentCard = memo(({ content, onEdit, onDelete, onOpenCourse, onSubmitForReview, onArchive, onRestore, onOpenDetail, actionsDisabled, pendingAction }: ContentCardProps) => {
   const formattedDate = useMemo(() =>
     formatDistanceToNow(new Date(content.updatedAt), { addSuffix: true }),
     [content.updatedAt]
@@ -77,9 +89,31 @@ const ContentCard = memo(({ content, onEdit, onDelete, onOpenCourse, onSubmitFor
   const canSubmit = content.status === 'DRAFT' || content.status === 'REJECTED';
   const canArchive = content.status !== 'ARCHIVED' && content.status !== 'PENDING_REVIEW';
   const canRestore = content.status === 'ARCHIVED';
+  const isPending = pendingAction?.id === content.id;
+  const isPendingKind = (kind: ContentActionKind) => isPending && pendingAction?.kind === kind;
 
   return (
-    <Card className={`group relative overflow-hidden border-l-4 ${status.border} hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5`}>
+    <Card
+      role="button"
+      tabIndex={actionsDisabled ? -1 : 0}
+      aria-disabled={actionsDisabled}
+      onClick={() => {
+        if (!actionsDisabled) onOpenDetail(content);
+      }}
+      onKeyDown={(event) => {
+        if (actionsDisabled) return;
+
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onOpenDetail(content);
+        }
+      }}
+      className={`group relative overflow-hidden border-l-4 ${status.border} transition-all duration-300 ${
+        actionsDisabled
+          ? 'cursor-not-allowed opacity-80'
+          : 'cursor-pointer hover:shadow-lg hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2'
+      }`}
+    >
       <CardContent className="p-0">
         {/* Card Body */}
         <div className="p-5">
@@ -133,6 +167,8 @@ const ContentCard = memo(({ content, onEdit, onDelete, onOpenCourse, onSubmitFor
                 href={content.url}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
                 className="text-blue-500 hover:text-blue-700 truncate max-w-[200px] underline decoration-dotted underline-offset-2"
               >
                 {content.urlTitle || content.url}
@@ -140,38 +176,51 @@ const ContentCard = memo(({ content, onEdit, onDelete, onOpenCourse, onSubmitFor
             )}
             <span className="ml-auto flex-shrink-0">{formattedDate}</span>
           </div>
+
+          {isPending && (
+            <div className="mt-3 flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              {pendingAction?.label}
+            </div>
+          )}
         </div>
 
         {/* Action Bar — visible on hover */}
-        <div className="border-t border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/50 px-4 py-2.5 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 max-h-0 group-hover:max-h-20 overflow-hidden group-hover:py-2.5">
+        <div className={`border-t border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/50 px-4 flex items-center gap-1.5 transition-opacity duration-200 overflow-hidden ${
+          isPending ? 'opacity-100 max-h-20 py-2.5' : 'opacity-0 group-hover:opacity-100 max-h-0 group-hover:max-h-20 group-hover:py-2.5'
+        }`} onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
           {canEdit && (
-            <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs gap-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50" onClick={() => onEdit(content)}>
+            <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs gap-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50" onClick={() => onEdit(content)} disabled={actionsDisabled}>
               <Edit className="h-3 w-3" /> Edit
             </Button>
           )}
           {content.type === 'COURSE' && (
-            <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs gap-1.5 text-gray-600 hover:text-violet-600 hover:bg-violet-50" onClick={() => onOpenCourse(content)}>
+            <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs gap-1.5 text-gray-600 hover:text-violet-600 hover:bg-violet-50" onClick={() => onOpenCourse(content)} disabled={actionsDisabled}>
               <Eye className="h-3 w-3" /> Manage
             </Button>
           )}
           {canSubmit && (
-            <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs gap-1.5 text-gray-600 hover:text-amber-600 hover:bg-amber-50" onClick={() => onSubmitForReview(content.id)}>
-              <Send className="h-3 w-3" /> {content.status === 'REJECTED' ? 'Resubmit' : 'Submit'}
+            <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs gap-1.5 text-gray-600 hover:text-amber-600 hover:bg-amber-50" onClick={() => onSubmitForReview(content.id)} disabled={actionsDisabled}>
+              {isPendingKind('submit') ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+              {content.status === 'REJECTED' ? 'Resubmit' : 'Submit'}
             </Button>
           )}
           {canArchive && (
-            <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs gap-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100" onClick={() => onArchive(content.id, content.status)}>
-              <Archive className="h-3 w-3" /> Archive
+            <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs gap-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100" onClick={() => onArchive(content.id, content.status)} disabled={actionsDisabled}>
+              {isPendingKind('archive') ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}
+              Archive
             </Button>
           )}
           {canRestore && (
-            <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs gap-1.5 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50" onClick={() => onRestore(content.id, content.statusBeforeArchive)}>
-              <RotateCcw className="h-3 w-3" /> Restore
+            <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs gap-1.5 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50" onClick={() => onRestore(content.id, content.statusBeforeArchive)} disabled={actionsDisabled}>
+              {isPendingKind('restore') ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+              Restore
             </Button>
           )}
           <div className="ml-auto">
-            <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs gap-1.5 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => onDelete(content.id)}>
-              <Trash2 className="h-3 w-3" /> Delete
+            <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs gap-1.5 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => onDelete(content.id)} disabled={actionsDisabled}>
+              {isPendingKind('delete') ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+              Delete
             </Button>
           </div>
         </div>
@@ -212,19 +261,47 @@ function StatsBar({ content }: { content: ContentType[] }) {
 export const MentorContent = memo(() => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingContent, setEditingContent] = useState<ContentType | null>(null);
+  const [detailContent, setDetailContent] = useState<ContentType | null>(null);
   const [courseBuilderContent, setCourseBuilderContent] = useState<ContentType | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [profileSelectorOpen, setProfileSelectorOpen] = useState(false);
+  const [pendingContentAction, setPendingContentAction] = useState<PendingContentAction>(null);
 
   const { data: content = [], isLoading } = useContentList();
   const deleteContentMutation = useDeleteContent();
   const submitForReviewMutation = useSubmitForReview();
   const archiveContentMutation = useArchiveContent();
   const { handleError } = useMentorContentErrorHandler();
+  const isContentActionPending = Boolean(pendingContentAction) ||
+    deleteContentMutation.isPending ||
+    submitForReviewMutation.isPending ||
+    archiveContentMutation.isPending;
+
+  const clearPendingContentAction = useCallback(() => {
+    setPendingContentAction(null);
+  }, []);
+
+  const executeContentAction = useCallback((
+    action: NonNullable<PendingContentAction>,
+    execute: (onSettled: () => void) => void,
+    context: string
+  ) => {
+    try {
+      setPendingContentAction(action);
+      execute(clearPendingContentAction);
+    } catch (error) {
+      clearPendingContentAction();
+      handleError(error as Error, context);
+    }
+  }, [clearPendingContentAction, handleError]);
 
   const handleEdit = useCallback((content: ContentType) => {
     try { setEditingContent(content); } catch (error) { handleError(error as Error, 'content-edit'); }
+  }, [handleError]);
+
+  const handleOpenDetail = useCallback((content: ContentType) => {
+    try { setDetailContent(content); } catch (error) { handleError(error as Error, 'content-detail'); }
   }, [handleError]);
 
   const handleDelete = useCallback((id: string) => {
@@ -234,10 +311,14 @@ export const MentorContent = memo(() => {
       actionLabel: 'Delete',
       variant: 'destructive',
       onConfirm: () => {
-        try { deleteContentMutation.mutate(id); } catch (error) { handleError(error as Error, 'content-delete'); }
+        executeContentAction(
+          { id, kind: 'delete', label: 'Deleting content...' },
+          (onSettled) => deleteContentMutation.mutate(id, { onSettled }),
+          'content-delete'
+        );
       },
     });
-  }, [deleteContentMutation, handleError]);
+  }, [deleteContentMutation, executeContentAction]);
 
   const handleOpenCourse = useCallback((content: ContentType) => {
     try { setCourseBuilderContent(content); } catch (error) { handleError(error as Error, 'course-builder-open'); }
@@ -249,9 +330,15 @@ export const MentorContent = memo(() => {
       description: 'Submit this content for admin review? You won\'t be able to edit it while it\'s under review.',
       actionLabel: 'Submit',
       variant: 'default',
-      onConfirm: () => submitForReviewMutation.mutate(id),
+      onConfirm: () => {
+        executeContentAction(
+          { id, kind: 'submit', label: 'Submitting for review...' },
+          (onSettled) => submitForReviewMutation.mutate(id, { onSettled }),
+          'content-submit'
+        );
+      },
     });
-  }, [submitForReviewMutation]);
+  }, [executeContentAction, submitForReviewMutation]);
 
   const handleArchive = useCallback((id: string, currentStatus: string) => {
     setConfirmAction({
@@ -259,17 +346,36 @@ export const MentorContent = memo(() => {
       description: 'Archive this content? It will be hidden from your profile but can be restored later.',
       actionLabel: 'Archive',
       variant: 'default',
-      onConfirm: () => archiveContentMutation.mutate({ id, action: 'archive', statusBeforeArchive: currentStatus }),
+      onConfirm: () => {
+        executeContentAction(
+          { id, kind: 'archive', label: 'Archiving content...' },
+          (onSettled) => archiveContentMutation.mutate(
+            { id, action: 'archive', statusBeforeArchive: currentStatus },
+            { onSettled }
+          ),
+          'content-archive'
+        );
+      },
     });
-  }, [archiveContentMutation]);
+  }, [archiveContentMutation, executeContentAction]);
 
   const handleRestore = useCallback((id: string, statusBeforeArchive?: string) => {
-    archiveContentMutation.mutate({ id, action: 'restore', statusBeforeArchive });
-  }, [archiveContentMutation]);
+    executeContentAction(
+      { id, kind: 'restore', label: 'Restoring content...' },
+      (onSettled) => archiveContentMutation.mutate(
+        { id, action: 'restore', statusBeforeArchive },
+        { onSettled }
+      ),
+      'content-restore'
+    );
+  }, [archiveContentMutation, executeContentAction]);
 
   const handleCreateDialogOpen = useCallback(() => setCreateDialogOpen(true), []);
   const handleCreateDialogClose = useCallback(() => setCreateDialogOpen(false), []);
   const handleEditDialogClose = useCallback(() => setEditingContent(null), []);
+  const handleDetailDialogChange = useCallback((open: boolean) => {
+    if (!open) setDetailContent(null);
+  }, []);
   const handleCourseBuilderBack = useCallback(() => setCourseBuilderContent(null), []);
 
   const filteredContent = useMemo(() => {
@@ -290,6 +396,11 @@ export const MentorContent = memo(() => {
     rejected: content.filter((item: ContentType) => item.status === 'REJECTED').length,
     archived: content.filter((item: ContentType) => item.status === 'ARCHIVED').length,
   }), [content]);
+
+  const selectedDetailContent = useMemo(() => {
+    if (!detailContent) return null;
+    return content.find((item: ContentType) => item.id === detailContent.id) ?? detailContent;
+  }, [content, detailContent]);
 
   if (courseBuilderContent) {
     return (
@@ -315,6 +426,7 @@ export const MentorContent = memo(() => {
                 <Button
                   variant="outline"
                   onClick={() => setProfileSelectorOpen(true)}
+                  disabled={isContentActionPending}
                   className="border-blue-400/30 text-blue-200 hover:bg-blue-500/20 hover:text-white transition-all h-10 px-4 gap-2 rounded-xl font-medium bg-white/5 backdrop-blur-sm"
                 >
                   <Globe className="h-4 w-4" />
@@ -323,6 +435,7 @@ export const MentorContent = memo(() => {
               )}
               <Button
                 onClick={handleCreateDialogOpen}
+                disabled={isContentActionPending}
                 className="bg-blue-500 hover:bg-blue-400 text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-400/30 transition-all h-10 px-5 gap-2 rounded-xl font-medium"
               >
                 <Plus className="h-4 w-4" />
@@ -406,7 +519,7 @@ export const MentorContent = memo(() => {
               }
             </p>
             {activeTab === 'all' && (
-              <Button onClick={handleCreateDialogOpen} className="gap-2 rounded-xl bg-blue-500 hover:bg-blue-400 shadow-md">
+              <Button onClick={handleCreateDialogOpen} disabled={isContentActionPending} className="gap-2 rounded-xl bg-blue-500 hover:bg-blue-400 shadow-md">
                 <Plus className="h-4 w-4" />
                 Create Your First Content
               </Button>
@@ -424,6 +537,9 @@ export const MentorContent = memo(() => {
                 onSubmitForReview={handleSubmitForReview}
                 onArchive={handleArchive}
                 onRestore={handleRestore}
+                onOpenDetail={handleOpenDetail}
+                actionsDisabled={isContentActionPending}
+                pendingAction={pendingContentAction}
               />
             ))}
           </div>
@@ -436,6 +552,20 @@ export const MentorContent = memo(() => {
             onOpenChange={handleEditDialogClose}
           />
         )}
+
+        <ContentDetailDialog
+          content={selectedDetailContent}
+          open={!!selectedDetailContent}
+          onOpenChange={handleDetailDialogChange}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onOpenCourse={handleOpenCourse}
+          onSubmitForReview={handleSubmitForReview}
+          onArchive={handleArchive}
+          onRestore={handleRestore}
+          actionsDisabled={isContentActionPending}
+          pendingAction={pendingContentAction}
+        />
 
         <CreateContentDialog
           open={createDialogOpen}

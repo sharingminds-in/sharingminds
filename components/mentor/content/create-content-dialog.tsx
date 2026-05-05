@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Book, FileText, Link, Upload, X, Check, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { useCreateContent, useUploadFile } from '@/hooks/queries/use-content-queries';
+import { parseExternalUrl, resolveUrlContentDetails } from '@/lib/content/url';
 import { toast } from 'sonner';
 
 // Validation schemas
@@ -87,7 +88,7 @@ export function CreateContentDialog({ open = false, onOpenChange, onSuccess }: C
   const createContentMutation = useCreateContent();
   const uploadFileMutation = useUploadFile();
   
-  // Dynamic schema resolver based on content type
+  // Dynamic schema based on content type
   const getSchemaForType = (type: string) => {
     switch (type) {
       case 'URL':
@@ -101,6 +102,7 @@ export function CreateContentDialog({ open = false, onOpenChange, onSuccess }: C
 
   const form = useForm<FormData>({
     resolver: zodResolver(baseContentSchema),
+    shouldUnregister: false,
     defaultValues: {
       title: '',
       description: '',
@@ -113,15 +115,24 @@ export function CreateContentDialog({ open = false, onOpenChange, onSuccess }: C
   });
   
   const watchedType = form.watch('type');
+  const watchedValues = form.watch();
   const totalSteps = watchedType === 'COURSE' ? 2 : watchedType === 'FILE' ? 3 : 3;
+  const parsedUrl = watchedType === 'URL' ? parseExternalUrl(watchedValues.url) : null;
+  const urlValidationError =
+    watchedType === 'URL' && watchedValues.url && parsedUrl?.success === false
+      ? parsedUrl.error
+      : null;
   
-  // Update form resolver when type changes
+  // Clear validation errors when type changes
   React.useEffect(() => {
-    const schema = getSchemaForType(watchedType);
-    form.clearErrors(); // Clear previous validation errors
+    form.clearErrors();
   }, [watchedType, form]);
   
-  const handleClose = useCallback(() => {
+  const handleCancel = useCallback(() => {
+    onOpenChange?.(false);
+  }, [onOpenChange]);
+
+  const handleSuccess = useCallback(() => {
     onOpenChange?.(false);
     onSuccess();
   }, [onOpenChange, onSuccess]);
@@ -164,66 +175,63 @@ export function CreateContentDialog({ open = false, onOpenChange, onSuccess }: C
   
   const validateCurrentStep = () => {
     const values = form.getValues();
-    console.log(`Validating step ${step} for type ${watchedType}:`, values);
-    
+    const currentUrlDetails = watchedType === 'URL'
+      ? resolveUrlContentDetails(values)
+      : null;
+
     if (step === 1) {
-      const isValid = values.title && values.type;
-      console.log('Step 1 validation:', isValid);
-      return isValid;
+      return Boolean(values.title && values.type);
     }
     
     if (step === 2 && watchedType === 'FILE') {
-      const isValid = selectedFile;
-      console.log('Step 2 FILE validation:', isValid);
-      return isValid;
+      return Boolean(selectedFile);
     }
     
     if (step === 2 && watchedType === 'URL') {
-      // Validate URL with schema
-      try {
-        if (!values.url) {
-          console.log('Step 2 URL validation failed: no URL');
-          return false;
-        }
-        z.string().url().parse(values.url);
-        console.log('Step 2 URL validation passed');
-        return true;
-      } catch (error) {
-        console.log('Step 2 URL validation failed:', error);
-        return false;
-      }
+      return currentUrlDetails?.success ?? false;
     }
     
-    // Step 3 validation for URL type
     if (step === 3 && watchedType === 'URL') {
-      // Ensure we have both title and valid URL for final submission
-      try {
-        if (!values.title || !values.url) {
-          console.log('Step 3 URL validation failed: missing title or URL');
-          return false;
-        }
-        z.string().url().parse(values.url);
-        console.log('Step 3 URL validation passed');
-        return true;
-      } catch (error) {
-        console.log('Step 3 URL validation failed:', error);
-        return false;
-      }
+      return currentUrlDetails?.success ?? false;
     }
     
-    // Step 3 validation for FILE type
     if (step === 3 && watchedType === 'FILE') {
-      const isValid = values.title && selectedFile;
-      console.log('Step 3 FILE validation:', isValid);
-      return isValid;
+      return Boolean(values.title && selectedFile);
     }
     
-    console.log('Default validation: true');
     return true;
   };
   
   const nextStep = () => {
     if (validateCurrentStep() && step < totalSteps) {
+      if (watchedType === 'URL') {
+        const currentValues = form.getValues();
+        const urlDetails = resolveUrlContentDetails(currentValues);
+
+        if (urlDetails.success) {
+          form.setValue('url', urlDetails.url, {
+            shouldDirty: true,
+            shouldValidate: true,
+          });
+
+          if (!currentValues.title?.trim()) {
+            form.setValue('title', urlDetails.title, {
+              shouldDirty: true,
+              shouldValidate: true,
+            });
+          }
+
+          if (!currentValues.description?.trim() && urlDetails.description) {
+            form.setValue('description', urlDetails.description, {
+              shouldDirty: true,
+              shouldValidate: true,
+            });
+          }
+
+          form.clearErrors('url');
+        }
+      }
+
       setStep(step + 1);
     }
   };
@@ -234,33 +242,24 @@ export function CreateContentDialog({ open = false, onOpenChange, onSuccess }: C
     }
   };
   
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async () => {
     try {
-      console.log('Form submission started with data:', data);
-      
-      // Get current form values directly
-      const currentFormValues = form.getValues();
-      console.log('Form values from getValues():', currentFormValues);
-      console.log('URL field specifically:', currentFormValues.url);
-      
-      // Use current form values instead of the data parameter
-      const formData = { ...currentFormValues };
-      console.log('Using form data:', formData);
-      
-      // Validate data based on content type
-      let validatedData;
-      
+      const formData = { ...form.getValues() };
       if (formData.type === 'URL') {
-        console.log('Validating URL data...');
-        validatedData = urlContentSchema.parse(formData);
-        console.log('URL validation passed:', validatedData);
-      } else if (formData.type === 'FILE') {
-        console.log('Validating FILE data...');
-        validatedData = fileContentSchema.parse(formData);
-      } else {
-        console.log('Validating base data...');
-        validatedData = baseContentSchema.parse(formData);
+        const urlDetails = resolveUrlContentDetails(formData);
+
+        if (!urlDetails.success) {
+          form.setError('url', { type: 'validate', message: urlDetails.error });
+          toast.error(urlDetails.error);
+          return;
+        }
+
+        formData.title = urlDetails.title;
+        formData.description = urlDetails.description;
+        formData.url = urlDetails.url;
       }
+      const schema = getSchemaForType(formData.type);
+      const validatedData = schema.parse(formData);
       
       const { status: _status, ...basePayload } = validatedData;
       let finalData = { ...basePayload };
@@ -283,21 +282,16 @@ export function CreateContentDialog({ open = false, onOpenChange, onSuccess }: C
         };
       }
       
-      console.log('Submitting final data to API:', finalData);
       setUploadProgress(90);
       await createContentMutation.mutateAsync(finalData);
       setUploadProgress(100);
-      handleClose();
+      handleSuccess();
     } catch (error) {
-      console.error('Form submission error:', error);
       if (error instanceof z.ZodError) {
-        console.error('Zod validation errors:', error.errors);
-        // Handle validation errors
         error.errors.forEach((err) => {
           toast.error(`${err.path.join('.')}: ${err.message}`);
         });
       } else {
-        console.error('Error creating content:', error);
         toast.error('Failed to create content. Please try again.');
       }
       setUploadProgress(0);
@@ -307,15 +301,6 @@ export function CreateContentDialog({ open = false, onOpenChange, onSuccess }: C
   const isLoading = createContentMutation.isPending || uploadFileMutation.isPending;
   const isStepValid = validateCurrentStep();
   const isButtonDisabled = isLoading || !isStepValid;
-  
-  console.log('Button state:', {
-    step,
-    watchedType,
-    isLoading,
-    isStepValid,
-    isButtonDisabled,
-    totalSteps
-  });
   
   const renderStep = () => {
     switch (step) {
@@ -507,15 +492,28 @@ export function CreateContentDialog({ open = false, onOpenChange, onSuccess }: C
                         type="url"
                         {...field}
                         value={field.value || ''}
-                        onChange={(e) => {
-                          field.onChange(e.target.value);
-                          console.log('URL field changed:', e.target.value);
+                        onBlur={(event) => {
+                          field.onBlur();
+                          const urlResult = parseExternalUrl(event.target.value);
+
+                          if (urlResult.success) {
+                            form.setValue('url', urlResult.url, {
+                              shouldDirty: true,
+                              shouldValidate: true,
+                            });
+                            form.clearErrors('url');
+                          }
                         }}
                       />
                     </FormControl>
                     <FormDescription>
                       Link to external content, YouTube videos, articles, etc.
                     </FormDescription>
+                    {urlValidationError && (
+                      <p className="text-sm font-medium text-destructive">
+                        {urlValidationError}
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -566,7 +564,16 @@ export function CreateContentDialog({ open = false, onOpenChange, onSuccess }: C
         
         return null;
         
-      case 3:
+      case 3: {
+        const reviewValues = form.getValues();
+        const reviewUrlDetails = watchedType === 'URL'
+          ? resolveUrlContentDetails(reviewValues)
+          : null;
+        const reviewTitle =
+          reviewUrlDetails?.success ? reviewUrlDetails.title : reviewValues.title;
+        const reviewDescription =
+          reviewUrlDetails?.success ? reviewUrlDetails.description : reviewValues.description;
+
         return (
           <div className="space-y-6">
             <div>
@@ -583,10 +590,10 @@ export function CreateContentDialog({ open = false, onOpenChange, onSuccess }: C
                       })}
                     </div>
                   )}
-                  {form.getValues('title')}
+                  {reviewTitle}
                 </CardTitle>
                 <CardDescription>
-                  {form.getValues('description') || 'No description provided'}
+                  {reviewDescription || 'No description provided'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -600,7 +607,7 @@ export function CreateContentDialog({ open = false, onOpenChange, onSuccess }: C
                   <div>
                     <span className="font-medium">Status:</span>
                     <Badge variant="outline" className="ml-2">
-                      {form.getValues('status')}
+                      {reviewValues.status}
                     </Badge>
                   </div>
                   
@@ -613,11 +620,11 @@ export function CreateContentDialog({ open = false, onOpenChange, onSuccess }: C
                     </div>
                   )}
                   
-                  {watchedType === 'URL' && form.getValues('url') && (
+                  {watchedType === 'URL' && reviewValues.url && (
                     <div className="col-span-2">
                       <span className="font-medium">URL:</span>
                       <div className="mt-1 text-blue-600 break-all">
-                        {form.getValues('url')}
+                        {reviewValues.url}
                       </div>
                     </div>
                   )}
@@ -642,6 +649,7 @@ export function CreateContentDialog({ open = false, onOpenChange, onSuccess }: C
             )}
           </div>
         );
+      }
         
       default:
         return null;
@@ -653,6 +661,9 @@ export function CreateContentDialog({ open = false, onOpenChange, onSuccess }: C
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Content</DialogTitle>
+          <DialogDescription className="sr-only">
+            Create course, file, or URL content for mentees.
+          </DialogDescription>
           <div className="flex items-center gap-2 mt-2">
             <Progress value={(step / totalSteps) * 100} className="flex-1" />
             <span className="text-xs text-gray-500 whitespace-nowrap">
@@ -662,14 +673,14 @@ export function CreateContentDialog({ open = false, onOpenChange, onSuccess }: C
         </DialogHeader>
         
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="space-y-6">
             {renderStep()}
             
             <div className="flex justify-between pt-4 border-t">
               <Button
                 type="button"
                 variant="outline"
-                onClick={step === 1 ? handleClose : prevStep}
+                onClick={step === 1 ? handleCancel : prevStep}
                 disabled={isLoading}
               >
                 {step === 1 ? 'Cancel' : (
@@ -693,7 +704,6 @@ export function CreateContentDialog({ open = false, onOpenChange, onSuccess }: C
                 <Button
                   type="submit"
                   disabled={isButtonDisabled}
-                  onClick={() => console.log('Create Content button clicked!')}
                 >
                   {isLoading ? (
                     <>

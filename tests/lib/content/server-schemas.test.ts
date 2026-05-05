@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   contentStatusSchema,
+  createContentInputSchema,
   listAdminContentInputSchema,
   saveCourseInputSchema,
 } from '@/lib/content/server/schemas';
@@ -26,6 +27,16 @@ describe('content server schemas', () => {
       limit: 10,
       search: 'course',
     });
+  });
+
+  it('normalizes protocol-less URL content links', () => {
+    const parsed = createContentInputSchema.parse({
+      title: 'Useful article',
+      type: 'URL',
+      url: ' example.com/article ',
+    });
+
+    expect(parsed.url).toBe('https://example.com/article');
   });
 
   it('normalizes empty course strings while preserving required arrays', () => {
