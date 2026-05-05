@@ -315,10 +315,6 @@ export function HeroSection() {
         if (mentors && mentors.length) {
           await logMentorExposure(mentors.map((mentor) => mentor.id));
         }
-        // Always fetch content alongside mentors — fallback when AI skips suggest_content
-        if (!contentToolCallDetected) {
-          await fetchContentFromApi(toolCallQuery);
-        }
       }
 
       if (contentToolCallDetected) {
@@ -394,18 +390,17 @@ export function HeroSection() {
   const fetchContentFromApi = async (query?: string, difficulty?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED') => {
     try {
       const baseParams = { limit: 3, sortBy: 'enrollment_count' as const, sortOrder: 'desc' as const };
-      let payload = await trpcClient.public.listCourses.query({
+      const payload = await trpcClient.public.listCourses.query({
         ...baseParams,
         search: query || undefined,
         difficulty: difficulty || undefined,
       });
-      // Fallback: if search returned nothing, retry without filter to always show something
-      if (query && (!payload?.courses?.length)) {
-        payload = await trpcClient.public.listCourses.query(baseParams);
-      }
       const list = (payload?.courses ?? []) as SuggestedCourse[];
-      setSuggestedContent(list);
-      setShowContent(true);
+      // Only surface courses when relevant results were actually found
+      if (list.length > 0) {
+        setSuggestedContent(list);
+        setShowContent(true);
+      }
       return list;
     } catch (e) {
       console.error('Error fetching content:', e);
@@ -925,9 +920,12 @@ export function HeroSection() {
                     : 'Free'
 
                   return (
-                    <div
+                    <a
                       key={course.id}
-                      className="group rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 overflow-hidden transition-all duration-300 hover:border-purple-500/30 flex flex-col"
+                      href={`/courses/${course.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 overflow-hidden transition-all duration-300 hover:border-purple-500/30 flex flex-col cursor-pointer"
                     >
                       {course.thumbnailUrl ? (
                         <img
@@ -975,7 +973,7 @@ export function HeroSection() {
                           <span className="text-sm font-semibold text-white">{price}</span>
                         </div>
                       </div>
-                    </div>
+                    </a>
                   )
                 })}
               </div>
