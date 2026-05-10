@@ -21,6 +21,8 @@ export function mapStatusToTRPCCode(status: number): TRPCError['code'] {
       return 'NOT_FOUND';
     case 409:
       return 'CONFLICT';
+    case 402:
+      return 'PAYMENT_REQUIRED';
     case 429:
       return 'TOO_MANY_REQUESTS';
     default:

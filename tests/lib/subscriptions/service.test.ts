@@ -115,6 +115,7 @@ import {
 describe('subscription service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.PAYMENTS_PROVIDER;
   });
 
   it('returns an empty self-subscription payload when no active subscription exists', async () => {
@@ -193,6 +194,72 @@ describe('subscription service', () => {
 
     expect(cancelActiveSubscriptionsForUser).toHaveBeenCalledWith('admin-1');
     expect(createSubscription).toHaveBeenCalled();
+  });
+
+  it('requires payment checkout for paid prices when Razorpay is enabled', async () => {
+    process.env.PAYMENTS_PROVIDER = 'razorpay';
+    getUserWithRoles.mockResolvedValue({
+      id: 'user-1',
+      roles: [{ name: 'mentee', displayName: 'Mentee' }],
+    });
+    getPlanBasic.mockResolvedValue({
+      id: 'plan-1',
+      audience: 'mentee',
+      name: 'Mentee Pro',
+      plan_key: 'mentee_pro',
+    });
+    getPlanPrice.mockResolvedValue({
+      id: 'price-1',
+      plan_id: 'plan-1',
+      amount: 999,
+      billing_interval: 'month',
+      billing_interval_count: 1,
+    });
+
+    await expect(
+      selectSelfSubscriptionPlan('user-1', {
+        planId: 'plan-1',
+        priceId: 'price-1',
+      })
+    ).rejects.toMatchObject({
+      status: 402,
+      message: 'Paid subscription plans must be selected through payment checkout.',
+    });
+
+    expect(createSubscription).not.toHaveBeenCalled();
+  });
+
+  it('blocks paid plan selection without a price id when Razorpay is enabled', async () => {
+    process.env.PAYMENTS_PROVIDER = 'razorpay';
+    getUserWithRoles.mockResolvedValue({
+      id: 'user-1',
+      roles: [{ name: 'mentee', displayName: 'Mentee' }],
+    });
+    getPlanBasic.mockResolvedValue({
+      id: 'plan-1',
+      audience: 'mentee',
+      name: 'Mentee Pro',
+      plan_key: 'mentee_pro',
+    });
+    listPlanPrices.mockResolvedValue([
+      {
+        id: 'price-1',
+        plan_id: 'plan-1',
+        amount: 999,
+        is_active: true,
+      },
+    ]);
+
+    await expect(
+      selectSelfSubscriptionPlan('user-1', {
+        planId: 'plan-1',
+      })
+    ).rejects.toMatchObject({
+      status: 402,
+      message: 'Paid subscription plans must be selected through payment checkout.',
+    });
+
+    expect(createSubscription).not.toHaveBeenCalled();
   });
 
   it('rejects invalid admin analytics date ranges', async () => {

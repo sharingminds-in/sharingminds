@@ -36,6 +36,7 @@ import {
   type SubscriptionContext,
   type SubscriptionPlanFeature,
 } from '@/lib/subscriptions/enforcement';
+import { isRazorpayEnabled } from '@/lib/payments/config';
 import type {
   AdminCreateFeatureInput,
   AdminCreatePlanInput,
@@ -417,12 +418,30 @@ export async function selectSelfSubscriptionPlan(
   if (input.priceId) {
     const price = await getPlanPrice(input.priceId);
     assertSubscription(price && price.plan_id === input.planId, 400, 'Invalid price');
+    if (isRazorpayEnabled() && toNumber(price.amount) > 0) {
+      throw new SubscriptionServiceError(
+        402,
+        'Paid subscription plans must be selected through payment checkout.'
+      );
+    }
 
     periodEnd = addInterval(
       new Date(),
       price.billing_interval || 'month',
       price.billing_interval_count || 1
     );
+  } else if (isRazorpayEnabled()) {
+    const prices = await listPlanPrices(input.planId);
+    const hasActivePaidPrice = prices.some(
+      (price) => price.is_active && toNumber(price.amount) > 0
+    );
+
+    if (hasActivePaidPrice) {
+      throw new SubscriptionServiceError(
+        402,
+        'Paid subscription plans must be selected through payment checkout.'
+      );
+    }
   }
 
   await cancelActiveSubscriptionsForUser(userId);

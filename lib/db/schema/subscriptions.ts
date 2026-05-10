@@ -190,6 +190,7 @@ export const subscriptionPlanPrices = pgTable(
     currency: text('currency').notNull().default('USD'),
     isActive: boolean('is_active').notNull().default(true),
     introDurationIntervals: integer('intro_duration_intervals'),
+    providerPlanId: text('provider_plan_id'),
     effectiveFrom: timestamp('effective_from', { withTimezone: false }),
     effectiveTo: timestamp('effective_to', { withTimezone: false }),
     metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
