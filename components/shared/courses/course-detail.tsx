@@ -35,12 +35,13 @@ import { VideoPlayer } from '@/components/ui/kibo-video-player';
 import { useAuth } from '@/contexts/auth-context';
 import {
   useCourseEnrollmentStatusQuery,
-  useEnrollCourseMutation,
   useSubmitCourseReviewMutation,
   useToggleCourseReviewHelpfulMutation,
 } from '@/hooks/queries/use-learning-queries';
 import { toast } from 'sonner';
 import { useTRPCClient } from '@/lib/trpc/react';
+import { useRazorpayCheckout } from '@/hooks/use-razorpay-checkout';
+import type { PaymentCheckoutPayload } from '@/lib/payments/types';
 
 interface CourseDetailViewProps {
   courseId: string;
@@ -180,7 +181,7 @@ export function CourseDetailView({ courseId, onBack }: CourseDetailViewProps) {
     { courseId },
     Boolean(session && courseId)
   );
-  const enrollCourse = useEnrollCourseMutation();
+  const openPaymentCheckout = useRazorpayCheckout();
   const submitCourseReview = useSubmitCourseReviewMutation();
   const toggleCourseReviewHelpful = useToggleCourseReviewHelpfulMutation();
   const isEnrolled = enrollmentQuery.data?.isEnrolled ?? false;
@@ -259,7 +260,10 @@ export function CourseDetailView({ courseId, onBack }: CourseDetailViewProps) {
 
     try {
       setEnrollmentLoading(true);
-      await enrollCourse.mutateAsync({ courseId });
+      const payment = (await trpcClient.payments.startCourseEnrollment.mutate({
+        courseId,
+      })) as PaymentCheckoutPayload;
+      await openPaymentCheckout(payment);
       await enrollmentQuery.refetch();
       router.push(`/learn/${courseId}`);
     } catch (error) {

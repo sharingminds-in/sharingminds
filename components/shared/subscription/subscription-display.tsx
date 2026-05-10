@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlanCard } from "@/components/shared/subscription/plan-card";
 import { UsageMeter } from "@/components/shared/subscription/usage-meter";
@@ -11,11 +12,15 @@ import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
 import {
   type PublicSubscriptionPlan,
-  useSelectSubscriptionPlanMutation,
   usePublicSubscriptionPlans,
   useSubscriptionDetails,
   useSubscriptionUsage,
+  subscriptionKeys,
 } from "@/hooks/queries/use-subscription-queries";
+import { useTRPCClient } from "@/lib/trpc/react";
+import { queryKeys } from "@/lib/react-query";
+import { useRazorpayCheckout } from "@/hooks/use-razorpay-checkout";
+import type { PaymentCheckoutPayload } from "@/lib/payments/types";
 
 interface SubscriptionFeature {
   feature_key: string;
@@ -84,7 +89,9 @@ export function SubscriptionDisplay() {
     isLoading: plansLoading,
     error: plansError,
   } = usePublicSubscriptionPlans(audienceForPlans, !authLoading && Boolean(audienceForPlans));
-  const selectPlanMutation = useSelectSubscriptionPlanMutation();
+  const trpcClient = useTRPCClient();
+  const queryClient = useQueryClient();
+  const openPaymentCheckout = useRazorpayCheckout();
 
   const subscription = subscriptionData?.subscription ?? null;
   const features = subscriptionData?.features ?? [];
@@ -97,13 +104,18 @@ export function SubscriptionDisplay() {
 
     setSelectingPlanId(plan.id);
     try {
-      await selectPlanMutation.mutateAsync({
+      const payment = (await trpcClient.payments.startSubscription.mutate({
         planId: plan.id,
         priceId: monthlyPrice?.id,
-      });
+      })) as PaymentCheckoutPayload;
+      await openPaymentCheckout(payment);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: subscriptionKeys.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.sessionWithRoles }),
+      ]);
       toast.success("Plan selected");
     } catch (error) {
-      // mutation hook surfaces the toast
+      toast.error(error instanceof Error ? error.message : "Failed to select plan");
     } finally {
       setSelectingPlanId(null);
     }

@@ -50,6 +50,7 @@ import {
 import { FEATURE_KEYS } from '@/lib/subscriptions/feature-keys';
 import { findAvailableReplacementMentor } from '@/lib/services/mentor-matching';
 import { MENTOR_FEATURE_KEYS } from '@/lib/mentor/access-policy';
+import { isRazorpayEnabled } from '@/lib/payments/config';
 import {
   sendAlternativeMentorSelectedEmail,
   sendBookingConfirmedEmail,
@@ -464,11 +465,26 @@ export async function updateBooking(
 
 export async function createBooking(
   context: AuthenticatedContext,
-  input: CreateBookingInput
+  input: CreateBookingInput,
+  options: {
+    paymentConfirmed?: boolean;
+    paymentIntentId?: string;
+  } = {}
 ) {
   const parsed = createBookingInputSchema.parse(input);
   await ensureRole(context.userId, ['mentee']);
   bookingRateLimit.check(context.req, context.userId);
+
+  if (
+    parsed.sessionType === 'PAID' &&
+    isRazorpayEnabled() &&
+    !options.paymentConfirmed
+  ) {
+    throw new BookingServiceError(
+      402,
+      'Paid sessions must be booked through payment checkout.'
+    );
+  }
 
   const scheduledAt = new Date(parsed.scheduledAt);
   const timeErrors = validateBookingTime(scheduledAt, parsed.duration);
@@ -737,6 +753,7 @@ export async function createBooking(
       status: 'scheduled',
       rate: sessionRate,
       currency: mentor.currency || 'USD',
+      paymentIntentId: options.paymentIntentId,
     })
     .returning();
 

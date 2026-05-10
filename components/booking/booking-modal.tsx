@@ -35,6 +35,8 @@ import { useCreateBookingMutation } from '@/hooks/queries/use-booking-queries';
 import { useSubscriptionFeatureLimitAmount } from '@/hooks/queries/use-subscription-queries';
 import { useTRPCClient } from '@/lib/trpc/react';
 import { FEATURE_KEYS } from '@/lib/subscriptions/feature-keys';
+import { useRazorpayCheckout } from '@/hooks/use-razorpay-checkout';
+import type { PaymentCheckoutPayload } from '@/lib/payments/types';
 
 interface Mentor {
   id: string;
@@ -92,6 +94,7 @@ export function BookingModal({
     mentorSessionsRemaining?: number | null;
   } | null>(null);
   const createBookingMutation = useCreateBookingMutation();
+  const openPaymentCheckout = useRazorpayCheckout();
   const { limitAmount: aiSpecialRate } = useSubscriptionFeatureLimitAmount(
     'mentee',
     FEATURE_KEYS.PAID_VIDEO_SESSIONS_MONTHLY,
@@ -136,7 +139,7 @@ export function BookingModal({
           paidAvailable: Boolean(data.data?.paid_available),
           freeRemaining: data.data?.free_remaining ?? null,
           paidRemaining: data.data?.paid_remaining ?? null,
-          mentorSessionsRemaining: data.data?.mentor_sessions_remaining ?? null,
+          mentorSessionsRemaining: (data.data as any)?.mentor_sessions_remaining ?? null,
         });
       } catch (error) {
         setSessionAvailability({
@@ -206,7 +209,7 @@ export function BookingModal({
     setIsSubmitting(true);
 
     try {
-      const data = await createBookingMutation.mutateAsync({
+      const bookingPayload = {
         mentorId: mentor.userId,
         bookingSource,
         sessionType: bookingData.sessionType!,
@@ -216,7 +219,27 @@ export function BookingModal({
         duration: bookingData.duration!,
         meetingType: bookingData.meetingType!,
         location: bookingData.location,
-      });
+      };
+
+      if (bookingPayload.sessionType === 'PAID') {
+        const payment = (await trpcClient.payments.startSessionBooking.mutate(
+          bookingPayload
+        )) as PaymentCheckoutPayload;
+        const result = await openPaymentCheckout(payment);
+        const resource =
+          'resource' in result ? result.resource : null;
+
+        if (resource?.type !== 'session' || !resource.id) {
+          throw new Error('Payment completed but the session is still processing.');
+        }
+
+        setBookingId(resource.id);
+        setCurrentStep('success');
+        toast.success('Session booked successfully!');
+        return;
+      }
+
+      const data = await createBookingMutation.mutateAsync(bookingPayload);
 
       setBookingId(data.booking.id);
       setCurrentStep('success');

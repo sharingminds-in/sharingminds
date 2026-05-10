@@ -6,6 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useValidateMentorCouponMutation } from "@/hooks/queries/use-mentor-queries"
+import { useRazorpayCheckout } from "@/hooks/use-razorpay-checkout"
+import { useTRPCClient } from "@/lib/trpc/react"
+import type { PaymentCheckoutPayload } from "@/lib/payments/types"
 import {
     CheckCircle,
     ArrowRight,
@@ -34,6 +37,8 @@ export function MentorPaymentGate({ user, mentorProfile, onPaymentComplete }: Me
     const [validationMessage, setValidationMessage] = useState<string | null>(null)
     const [isCompleting, setIsCompleting] = useState(false)
     const validateCouponMutation = useValidateMentorCouponMutation()
+    const trpcClient = useTRPCClient()
+    const openPaymentCheckout = useRazorpayCheckout()
 
     const handleApplyCoupon = async () => {
         const normalizedCode = couponCode.trim().toUpperCase()
@@ -63,6 +68,18 @@ export function MentorPaymentGate({ user, mentorProfile, onPaymentComplete }: Me
         if (!couponApplied || isCompleting) return
         setIsCompleting(true)
         try {
+            await onPaymentComplete?.()
+        } finally {
+            setIsCompleting(false)
+        }
+    }
+
+    const handleProceedToPayment = async () => {
+        if (isCompleting) return
+        setIsCompleting(true)
+        try {
+            const payment = (await trpcClient.payments.startMentorOnboarding.mutate()) as PaymentCheckoutPayload
+            await openPaymentCheckout(payment)
             await onPaymentComplete?.()
         } finally {
             setIsCompleting(false)
@@ -129,7 +146,7 @@ export function MentorPaymentGate({ user, mentorProfile, onPaymentComplete }: Me
                                 <div className="mt-6 space-y-2 text-sm">
                                     <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                                         <ShieldCheck className="h-4 w-4 text-green-600" />
-                                        <span>Secure payments powered by Stripe</span>
+                                        <span>Secure payments powered by Razorpay</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                                         <Lock className="h-4 w-4 text-blue-600" />
@@ -184,7 +201,11 @@ export function MentorPaymentGate({ user, mentorProfile, onPaymentComplete }: Me
                             You'll be redirected to our secure payment partner. Completing payment instantly unlocks your access.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-                            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                            <Button
+                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                                disabled={isCompleting}
+                                onClick={handleProceedToPayment}
+                            >
                                 Proceed to payment
                                 <ArrowRight className="ml-2 h-4 w-4" />
                             </Button>

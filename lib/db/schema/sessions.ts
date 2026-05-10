@@ -28,6 +28,7 @@ export const sessions = pgTable('sessions', {
   // Pricing
   rate: decimal('rate', { precision: 10, scale: 2 }),
   currency: text('currency').default('USD'),
+  paymentIntentId: uuid('payment_intent_id'),
 
   // Session notes and feedback
   mentorNotes: text('mentor_notes'),

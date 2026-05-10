@@ -49,6 +49,7 @@ import {
 } from '@/lib/subscriptions/policy-runtime';
 import { resolveStorageUrl } from '@/lib/storage';
 import { safeJsonParse } from '@/lib/utils/safe-json';
+import { isRazorpayEnabled } from '@/lib/payments/config';
 import {
   courseEnrollmentStatusInputSchema,
   courseProgressInputSchema,
@@ -369,7 +370,12 @@ export async function getCourseEnrollmentStatus(
 export async function enrollInCourse(
   userId: string,
   input: EnrollCourseInput,
-  currentUser?: CurrentUser
+  currentUser?: CurrentUser,
+  paymentOptions: {
+    paymentConfirmed?: boolean;
+    paymentIntentId?: string;
+    providerPaymentId?: string;
+  } = {}
 ) {
   const parsed = enrollCourseInputSchema.parse(input);
   const { menteeId } = await getOrCreateCourseAccessMenteeId(userId, currentUser);
@@ -485,27 +491,39 @@ export async function enrollInCourse(
   const enrollmentId = enrollment.id;
 
   if (finalPrice > 0) {
+    if (isRazorpayEnabled() && !paymentOptions.paymentConfirmed) {
+      throw new LearningServiceError(
+        402,
+        'Paid courses must be enrolled through payment checkout.'
+      );
+    }
+
     assertLearning(
-      parsed.paymentMethodId || parsed.isGift,
+      paymentOptions.paymentConfirmed || parsed.paymentMethodId || parsed.isGift,
       400,
       'Payment method required for paid courses'
     );
 
-    const transactionId = `txn_${Date.now()}_${Math.random()
-      .toString(36)
-      .slice(2, 11)}`;
+    const transactionId =
+      paymentOptions.providerPaymentId ||
+      `txn_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 
     try {
       await db.insert(paymentTransactions).values({
         enrollmentId,
         transactionId,
-        paymentProvider: 'stripe',
-        paymentMethod: 'card',
+        paymentProvider: paymentOptions.paymentConfirmed
+          ? paymentOptions.providerPaymentId === 'dummy'
+            ? 'dummy'
+            : 'razorpay'
+          : 'stripe',
+        paymentMethod: paymentOptions.paymentConfirmed ? 'checkout' : 'card',
         amount: finalPrice.toString(),
         currency: course.currency,
         originalAmount: coursePrice.toString(),
         discountAmount: discountAmount.toString(),
         status: 'COMPLETED',
+        paymentIntentId: paymentOptions.paymentIntentId,
         processedAt: new Date(),
       });
 
@@ -513,7 +531,7 @@ export async function enrollInCourse(
         .update(courseEnrollments)
         .set({
           paymentStatus: 'COMPLETED',
-          paymentIntentId: transactionId,
+          paymentIntentId: paymentOptions.paymentIntentId || transactionId,
         })
         .where(eq(courseEnrollments.id, enrollmentId));
     } catch (paymentError) {

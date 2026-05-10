@@ -9,6 +9,7 @@ import { learningRouter } from './learning';
 import { messagingRouter } from './messaging';
 import { mentorRouter } from './mentor';
 import { notificationsRouter } from './notifications';
+import { paymentsRouter } from './payments';
 import { publicRouter } from './public';
 import { profileRouter } from './profile';
 import { recordingsRouter } from './recordings';
@@ -25,6 +26,7 @@ export const appRouter = createTRPCRouter({
   messaging: messagingRouter,
   mentor: mentorRouter,
   notifications: notificationsRouter,
+  payments: paymentsRouter,
   public: publicRouter,
   profile: profileRouter,
   recordings: recordingsRouter,

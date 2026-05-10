@@ -61,7 +61,7 @@ export const courseEnrollments = pgTable('course_enrollments', {
   paymentStatus: paymentStatusEnum('payment_status').default('PENDING').notNull(),
   paidAmount: decimal('paid_amount', { precision: 10, scale: 2 }),
   currency: text('currency').default('USD'),
-  paymentIntentId: text('payment_intent_id'), // Stripe payment intent ID
+  paymentIntentId: text('payment_intent_id'), // Payment provider intent ID
   
   // Metadata
   enrollmentNotes: text('enrollment_notes'), // Admin notes
@@ -248,7 +248,7 @@ export const paymentTransactions = pgTable('payment_transactions', {
   failureReason: text('failure_reason'),
   
   // Metadata
-  paymentIntentId: text('payment_intent_id'), // Stripe payment intent
+  paymentIntentId: text('payment_intent_id'), // Payment provider intent ID
   receiptUrl: text('receipt_url'),
   invoiceId: text('invoice_id'),
   
