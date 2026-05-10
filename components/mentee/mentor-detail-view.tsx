@@ -47,6 +47,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
+import { ContentDetailDialog } from "@/components/mentee/content-detail-dialog"
 import { useTRPCClient } from "@/lib/trpc/react"
 import {
   getMessagingAccessDecision,
@@ -72,6 +73,8 @@ export function MentorDetailView({ mentorId, onBack, bookingSource = 'default' }
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<TabType>("overview")
+  const [selectedContentItem, setSelectedContentItem] = useState<any>(null)
+  const [isContentDetailOpen, setIsContentDetailOpen] = useState(false)
 
   const { data: mentorContentItems, isLoading: isContentLoading } = useQuery({
     queryKey: ['public', 'mentor-content', mentor?.id],
@@ -345,7 +348,7 @@ export function MentorDetailView({ mentorId, onBack, bookingSource = 'default' }
         </div>
 
         <div className="space-y-4">
-          {mentorContentItems.map((item: any, index: number) => {
+          {mentorContentItems.map((item: any) => {
             const typeBadge = getContentTypeBadge(item.type)
 
             return (
@@ -353,11 +356,15 @@ export function MentorDetailView({ mentorId, onBack, bookingSource = 'default' }
                 <Card
                   className={cn(
                     "border-border shadow-sm rounded-xl overflow-hidden hover:shadow-md transition-shadow group",
-                    item.type === 'COURSE' && item.course?.courseId && 'cursor-pointer'
+                    (item.type === 'COURSE' && item.course?.courseId) && 'cursor-pointer',
+                    (item.type === 'FILE' || item.type === 'URL') && 'cursor-pointer'
                   )}
                   onClick={() => {
                     if (item.type === 'COURSE' && item.course?.courseId) {
                       router.push(`/dashboard?section=courses&courseId=${item.course.courseId}`)
+                    } else if (item.type === 'FILE' || item.type === 'URL') {
+                      setSelectedContentItem(item)
+                      setIsContentDetailOpen(true)
                     }
                   }}
                 >
@@ -480,6 +487,12 @@ export function MentorDetailView({ mentorId, onBack, bookingSource = 'default' }
             )
           })}
         </div>
+
+        <ContentDetailDialog
+          item={selectedContentItem}
+          open={isContentDetailOpen}
+          onOpenChange={setIsContentDetailOpen}
+        />
       </motion.div>
     )
   }
