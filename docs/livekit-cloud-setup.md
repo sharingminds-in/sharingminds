@@ -84,6 +84,12 @@ That lets LiveKit Cloud Egress upload files directly into the same bucket that t
   - `sessions/<sessionId>/<timestamp>.mp4`
   - or `sessions/<sessionId>/<timestamp>.ogg` for audio-only sessions
 - Webhooks update the `livekit_recordings` table with status, duration, file size, and storage location metadata.
+- `sessions.recording_config.quality = "low"` uses custom LiveKit Egress encoding:
+  - `resolution: "640x360"`
+  - `fps: 15`
+  - `bitrate: 600`
+  - `audioBitrate: 64`
+- Use low quality for Supabase Free smoke tests because Free projects reject objects larger than `50 MB`.
 
 ## What changed from the legacy VM setup
 
