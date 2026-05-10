@@ -1,0 +1,1040 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Young Minds Platform Architecture</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --panel-soft: #172033;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --border: #2f3a4f;
+        --accent: #38bdf8;
+        --accent-2: #a7f3d0;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        overflow-x: hidden;
+        background:
+          radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 30rem),
+          radial-gradient(circle at top right, rgba(167, 243, 208, 0.12), transparent 28rem),
+          var(--bg);
+        color: var(--text);
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      main {
+        width: min(1180px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 40px 0 56px;
+      }
+
+      header {
+        margin-bottom: 28px;
+      }
+
+      .eyebrow {
+        margin: 0 0 8px;
+        color: var(--accent-2);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 4.5rem);
+        line-height: 0.95;
+        letter-spacing: -0.06em;
+      }
+
+      .intro {
+        max-width: 920px;
+        margin: 18px 0 0;
+        color: var(--muted);
+        font-size: 1.08rem;
+        line-height: 1.7;
+      }
+
+      section {
+        margin-top: 28px;
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        background: rgba(17, 24, 39, 0.78);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+        overflow: hidden;
+      }
+
+      .section-header {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 22px 24px;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(135deg, rgba(23, 32, 51, 0.9), rgba(17, 24, 39, 0.7));
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        letter-spacing: -0.02em;
+      }
+
+      .section-note {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      .diagram {
+        padding: 30px;
+        overflow-x: hidden;
+        overflow-y: auto;
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .mermaid {
+        display: block;
+        min-width: 0;
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+      }
+
+      .system-diagram .mermaid {
+        display: none;
+      }
+
+      .sequence .mermaid {
+        min-width: 0;
+      }
+
+      .architecture-stack {
+        display: grid;
+        gap: 22px;
+      }
+
+      .arch-layer {
+        position: relative;
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background:
+          linear-gradient(135deg, rgba(23, 32, 51, 0.96), rgba(17, 24, 39, 0.92)),
+          var(--panel);
+        padding: 22px;
+      }
+
+      .layer-kicker {
+        margin: 0 0 8px;
+        color: var(--accent-2);
+        font-size: 0.82rem;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .layer-title {
+        margin: 0;
+        font-size: clamp(1.45rem, 2vw, 2rem);
+        letter-spacing: -0.04em;
+      }
+
+      .layer-copy {
+        margin: 8px 0 18px;
+        color: var(--muted);
+        font-size: 1.02rem;
+        line-height: 1.65;
+      }
+
+      .layer-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 14px;
+      }
+
+      .arch-card {
+        min-height: 118px;
+        border: 1px solid rgba(148, 163, 184, 0.26);
+        border-radius: 18px;
+        background: rgba(15, 23, 42, 0.64);
+        padding: 16px;
+      }
+
+      .arch-card strong {
+        display: block;
+        margin-bottom: 8px;
+        color: #f8fafc;
+        font-size: 1.08rem;
+        line-height: 1.25;
+      }
+
+      .arch-card span {
+        display: block;
+        color: var(--muted);
+        font-size: 0.98rem;
+        line-height: 1.55;
+      }
+
+      .flow-arrow {
+        display: grid;
+        place-items: center;
+        color: var(--accent);
+        font-size: 2rem;
+        line-height: 1;
+      }
+
+      .two-column-stack {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .module-list {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .module-list li {
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 14px;
+        background: rgba(15, 23, 42, 0.5);
+        padding: 12px 14px;
+        color: #dbeafe;
+        font-size: 1rem;
+        line-height: 1.45;
+      }
+
+      .subheading {
+        margin: 0 0 12px;
+        color: #f8fafc;
+        font-size: 1.12rem;
+      }
+
+      .system-boundary {
+        display: grid;
+        gap: 22px;
+      }
+
+      .boundary-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+      }
+
+      .boundary-box {
+        border: 1px solid rgba(56, 189, 248, 0.4);
+        border-radius: 24px;
+        background:
+          linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(15, 23, 42, 0.88)),
+          rgba(15, 23, 42, 0.88);
+        padding: 22px;
+      }
+
+      .boundary-title {
+        margin: 0 0 14px;
+        color: #e0f2fe;
+        font-size: clamp(1.35rem, 2vw, 1.9rem);
+        letter-spacing: -0.04em;
+      }
+
+      .service-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 14px;
+      }
+
+      .service-card {
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        border-radius: 18px;
+        background: rgba(2, 6, 23, 0.45);
+        padding: 16px;
+      }
+
+      .service-card strong {
+        display: block;
+        margin-bottom: 7px;
+        color: #f8fafc;
+        font-size: 1.04rem;
+      }
+
+      .service-card span {
+        display: block;
+        color: var(--muted);
+        font-size: 0.96rem;
+        line-height: 1.55;
+      }
+
+      .external-boundary {
+        border-color: rgba(167, 243, 208, 0.42);
+        background:
+          linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(15, 23, 42, 0.9)),
+          rgba(15, 23, 42, 0.88);
+      }
+
+      .connector-band {
+        display: grid;
+        gap: 10px;
+        place-items: center;
+        color: var(--accent);
+        font-size: 0.98rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .connector-line {
+        width: 2px;
+        height: 42px;
+        border-radius: 999px;
+        background: linear-gradient(to bottom, var(--accent), var(--accent-2));
+      }
+
+      .legend {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 20px;
+      }
+
+      .legend-card {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: rgba(17, 24, 39, 0.7);
+        padding: 14px;
+      }
+
+      .legend-card strong {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--text);
+        font-size: 0.92rem;
+      }
+
+      .legend-card span {
+        color: var(--muted);
+        font-size: 0.82rem;
+        line-height: 1.5;
+      }
+
+      footer {
+        margin-top: 22px;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      code {
+        color: var(--accent);
+      }
+
+      @media (max-width: 900px) {
+        main {
+          width: min(100vw - 18px, 1180px);
+          padding-top: 24px;
+        }
+
+        .section-header {
+          display: block;
+        }
+
+        .legend {
+          grid-template-columns: 1fr;
+        }
+
+        .diagram {
+          padding: 16px;
+        }
+
+        .two-column-stack {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Project Architecture</p>
+        <h1>Young Minds Mentor-Mentee Platform</h1>
+        <p class="intro">
+          A high-level architecture view of the current Next.js application:
+          role-aware dashboards, tRPC routers, REST route handlers, domain services,
+          Drizzle/PostgreSQL persistence, storage, authentication, payments,
+          messaging, LiveKit, and AI integrations.
+        </p>
+      </header>
+
+      <div class="legend" aria-label="Architecture legend">
+        <div class="legend-card">
+          <strong>UI Layer</strong>
+          <span>Next.js App Router pages, dashboard shell, role-specific components, and providers.</span>
+        </div>
+        <div class="legend-card">
+          <strong>API Boundary</strong>
+          <span>tRPC for typed business operations plus REST handlers for uploads and webhooks.</span>
+        </div>
+        <div class="legend-card">
+          <strong>Domain Services</strong>
+          <span>Server-side business logic for admin, mentor, booking, content, payment, and messaging flows.</span>
+        </div>
+        <div class="legend-card">
+          <strong>Persistence & External</strong>
+          <span>Drizzle/PostgreSQL, object storage, BetterAuth, Razorpay, LiveKit, email, and AI services.</span>
+        </div>
+      </div>
+
+      <section>
+        <div class="section-header">
+          <div>
+            <h2>System Architecture</h2>
+            <p class="section-note">
+              End-to-end structure from browser roles to API routes, services, persistence, and integrations.
+            </p>
+          </div>
+          <p class="section-note"><code>ARCHITECTURE_DIAGRAM.html</code></p>
+        </div>
+        <div class="diagram system-diagram">
+          <div class="architecture-stack" aria-label="Vertical architecture diagram">
+            <article class="arch-layer">
+              <p class="layer-kicker">Layer 1</p>
+              <h3 class="layer-title">Users and Browser Entry</h3>
+              <p class="layer-copy">
+                Three role groups use the same web application. Role-aware routing and dashboard sections decide which experience each user sees.
+              </p>
+              <div class="layer-grid">
+                <div class="arch-card">
+                  <strong>Admin</strong>
+                  <span>Manages mentors, users, content review, policies, enquiries, and operational controls.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>Mentor</strong>
+                  <span>Manages profile, availability, sessions, content, courses, and mentee interactions.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>Mentee</strong>
+                  <span>Discovers mentors, books sessions, manages profile, learns from content, and messages mentors.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>Web Browser</strong>
+                  <span>Loads the Next.js app, authenticates with BetterAuth, and calls tRPC or REST endpoints.</span>
+                </div>
+              </div>
+            </article>
+
+            <div class="flow-arrow">↓</div>
+
+            <article class="arch-layer">
+              <p class="layer-kicker">Layer 2</p>
+              <h3 class="layer-title">Next.js App Router UI</h3>
+              <p class="layer-copy">
+                The frontend is composed from App Router pages, a shared dashboard shell, feature modules, and global providers.
+              </p>
+              <div class="layer-grid">
+                <div class="arch-card">
+                  <strong>app/* pages</strong>
+                  <span>Landing, dashboard, mentor signup, learning, meetings, sessions, recordings, and review flows.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>components/dashboard</strong>
+                  <span>Role-aware dashboard shell and section renderer for admin, mentor, and mentee experiences.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>components/*</strong>
+                  <span>Feature UI for admin, mentor, mentee, booking, messaging, content, notifications, and shared profile screens.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>providers + contexts</strong>
+                  <span>Auth, theme, query client, app state, and cross-cutting client context.</span>
+                </div>
+              </div>
+            </article>
+
+            <div class="flow-arrow">↓</div>
+
+            <article class="arch-layer">
+              <p class="layer-kicker">Layer 3</p>
+              <h3 class="layer-title">Client Data Access</h3>
+              <p class="layer-copy">
+                Most business operations go through typed tRPC hooks. Multipart uploads and third-party webhooks use direct route handlers.
+              </p>
+              <div class="layer-grid">
+                <div class="arch-card">
+                  <strong>hooks/queries/*</strong>
+                  <span>TanStack Query wrappers for caching, invalidation, loading states, and mutations.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>lib/trpc/react</strong>
+                  <span>Typed tRPC client used by dashboard and feature components.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>Direct fetch</strong>
+                  <span>Used for multipart file flows such as uploads, mentor applications, admin mentor creation, and legacy route handlers.</span>
+                </div>
+              </div>
+            </article>
+
+            <div class="flow-arrow">↓</div>
+
+            <article class="arch-layer">
+              <p class="layer-kicker">Layer 4</p>
+              <h3 class="layer-title">Server API Boundary</h3>
+              <p class="layer-copy">
+                API requests enter through a small set of route boundaries. tRPC owns typed app operations, while REST handlers cover uploads, auth, webhooks, and streaming.
+              </p>
+              <div class="layer-grid">
+                <div class="arch-card">
+                  <strong>app/api/trpc/[trpc]</strong>
+                  <span>Single tRPC endpoint that dispatches to all application routers.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>app/api/auth/[...better-auth]</strong>
+                  <span>BetterAuth session, email/password, Google OAuth, and LinkedIn OAuth handlers.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>app/api/* routes</strong>
+                  <span>Admin mentor creation, mentor application uploads, content uploads, LiveKit webhooks, Razorpay webhooks, recordings, locations, and SSE.</span>
+                </div>
+              </div>
+            </article>
+
+            <div class="flow-arrow">↓</div>
+
+            <article class="arch-layer">
+              <p class="layer-kicker">Layer 5</p>
+              <h3 class="layer-title">tRPC Routers</h3>
+              <p class="layer-copy">
+                Routers group the public API surface by domain. They validate input, enforce procedure-level access, and delegate business logic to services.
+              </p>
+              <div class="two-column-stack">
+                <div>
+                  <h4 class="subheading">Core and role workflows</h4>
+                  <ul class="module-list">
+                    <li>auth, public, profile, analytics</li>
+                    <li>admin, mentor, bookings</li>
+                    <li>content, learning</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 class="subheading">Platform features</h4>
+                  <ul class="module-list">
+                    <li>messaging, notifications</li>
+                    <li>payments, subscriptions</li>
+                    <li>recordings, chatbot</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+
+            <div class="flow-arrow">↓</div>
+
+            <article class="arch-layer">
+              <p class="layer-kicker">Layer 6</p>
+              <h3 class="layer-title">Server Domain Services</h3>
+              <p class="layer-copy">
+                Services contain the actual business rules and orchestration. UI and route handlers should stay thin and call these modules.
+              </p>
+              <div class="layer-grid">
+                <div class="arch-card">
+                  <strong>lib/admin</strong>
+                  <span>Admin consoles, mentor verification, user provisioning, policy management, and audit actions.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>lib/mentor + lib/profile</strong>
+                  <span>Mentor applications, profile updates, availability, lifecycle state, and profile mapping.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>lib/bookings + lib/meetings</strong>
+                  <span>Session booking, access policy checks, scheduling rules, LiveKit meeting access, and session lifecycle.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>lib/content + courses + learning</strong>
+                  <span>Mentor content, courses, enrollments, feedback, progress, and learning analytics.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>lib/messaging + notifications</strong>
+                  <span>Threads, permissions, SSE messaging, notifications, and delivery records.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>lib/payments + subscriptions</strong>
+                  <span>Razorpay checkout, subscription plans, limits, payment state, and billing workflows.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>lib/recordings + livekit</strong>
+                  <span>Recording lifecycle, playback URL generation, room events, and LiveKit integration.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>lib/chatbot</strong>
+                  <span>AI chatbot flows, message storage, and AI-powered insight features.</span>
+                </div>
+              </div>
+            </article>
+
+            <div class="flow-arrow">↓</div>
+
+            <article class="arch-layer">
+              <p class="layer-kicker">Layer 7</p>
+              <h3 class="layer-title">Persistence and Storage</h3>
+              <p class="layer-copy">
+                Drizzle owns relational persistence. Object storage handles files, profile images, resumes, content files, and recordings.
+              </p>
+              <div class="layer-grid">
+                <div class="arch-card">
+                  <strong>lib/db</strong>
+                  <span>Drizzle client, schema exports, migrations, and database helpers.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>PostgreSQL</strong>
+                  <span>Users, roles, mentors, mentees, content, bookings, sessions, payments, notifications, audit trails, and availability.</span>
+                </div>
+                <div class="arch-card">
+                  <strong>lib/storage</strong>
+                  <span>Storage abstraction for Supabase Storage or S3, signed URLs, uploads, and deletes.</span>
+                </div>
+              </div>
+            </article>
+
+            <div class="flow-arrow">↓</div>
+
+            <article class="arch-layer">
+              <p class="layer-kicker">Layer 8</p>
+              <h3 class="layer-title">External Integrations and Cross-Cutting Rules</h3>
+              <p class="layer-copy">
+                External systems and shared enforcement modules sit around the domain services and route boundaries.
+              </p>
+              <div class="two-column-stack">
+                <div>
+                  <h4 class="subheading">External services</h4>
+                  <ul class="module-list">
+                    <li>Google OAuth and LinkedIn OAuth via BetterAuth</li>
+                    <li>Razorpay checkout and webhooks</li>
+                    <li>LiveKit rooms, tokens, webhooks, and recordings</li>
+                    <li>Nodemailer SMTP for email notifications</li>
+                    <li>Google AI SDK / Gemini for chatbot features</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 class="subheading">Cross-cutting modules</h4>
+                  <ul class="module-list">
+                    <li>lib/api/guards for admin, mentor, and mentee role checks</li>
+                    <li>lib/access-policy for runtime access policy enforcement</li>
+                    <li>lib/audit and DB audit tables for operational traceability</li>
+                    <li>zod schemas and lib/validations for input contracts</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <pre class="mermaid">
+%%{init: {"flowchart": {"nodeSpacing": 55, "rankSpacing": 80, "padding": 28}, "themeVariables": {"fontSize": "17px"}} }%%
+flowchart TB
+  subgraph Clients["Clients"]
+    direction LR
+    Browser["Web Browser"]
+    AdminUser["Admin"]
+    MentorUser["Mentor"]
+    MenteeUser["Mentee"]
+  end
+
+  AdminUser --> Browser
+  MentorUser --> Browser
+  MenteeUser --> Browser
+
+  subgraph NextApp["Next.js 16 App Router"]
+    direction LR
+    Pages["app/* pages<br/>Landing, dashboard, mentor signup, learning, sessions"]
+    DashboardShell["components/dashboard<br/>Role-aware dashboard shell"]
+    FeatureComponents["components/*<br/>Admin, mentor, mentee, booking, messaging, content"]
+    Providers["providers + contexts<br/>Auth, query, theme, app state"]
+  end
+
+  Browser --> Pages
+  Pages --> DashboardShell
+  DashboardShell --> FeatureComponents
+  FeatureComponents --> Providers
+
+  subgraph ClientData["Client Data Layer"]
+    direction LR
+    ReactQuery["TanStack Query hooks<br/>hooks/queries/*"]
+    TRPCClient["tRPC React client<br/>lib/trpc/react"]
+    DirectFetch["Direct fetch<br/>multipart uploads, webhooks, legacy routes"]
+  end
+
+  FeatureComponents --> ReactQuery
+  ReactQuery --> TRPCClient
+  FeatureComponents --> DirectFetch
+
+  subgraph ServerAPI["Server API Boundary"]
+    direction LR
+    TRPCRoute["app/api/trpc/[trpc]<br/>Single tRPC endpoint"]
+    RestRoutes["app/api/* route handlers<br/>Uploads, mentor application, admin mentor creation,<br/>LiveKit webhooks, Razorpay webhooks, recordings"]
+    BetterAuthRoutes["app/api/auth/[...better-auth]<br/>BetterAuth handlers"]
+  end
+
+  TRPCClient --> TRPCRoute
+  DirectFetch --> RestRoutes
+  Browser --> BetterAuthRoutes
+
+  subgraph TRPCRouters["tRPC Routers"]
+    direction TB
+    subgraph CoreRouters["Core"]
+      direction LR
+      AuthRouter["auth"]
+      PublicRouter["public"]
+      ProfileRouter["profile"]
+      AnalyticsRouter["analytics"]
+    end
+    subgraph RoleRouters["Role Workflows"]
+      direction LR
+      AdminRouter["admin"]
+      MentorRouter["mentor"]
+      BookingRouter["bookings"]
+      ContentRouter["content"]
+      LearningRouter["learning"]
+    end
+    subgraph PlatformRouters["Platform Features"]
+      direction LR
+      MessagingRouter["messaging"]
+      NotificationsRouter["notifications"]
+      PaymentsRouter["payments"]
+      RecordingsRouter["recordings"]
+      SubscriptionsRouter["subscriptions"]
+      ChatbotRouter["chatbot"]
+    end
+  end
+
+  TRPCRoute --> AuthRouter
+  TRPCRoute --> PublicRouter
+  TRPCRoute --> AdminRouter
+  TRPCRoute --> MentorRouter
+  TRPCRoute --> ProfileRouter
+  TRPCRoute --> BookingRouter
+  TRPCRoute --> ContentRouter
+  TRPCRoute --> LearningRouter
+  TRPCRoute --> MessagingRouter
+  TRPCRoute --> NotificationsRouter
+  TRPCRoute --> PaymentsRouter
+  TRPCRoute --> RecordingsRouter
+  TRPCRoute --> SubscriptionsRouter
+  TRPCRoute --> AnalyticsRouter
+  TRPCRoute --> ChatbotRouter
+
+  subgraph Services["Server Domain Services"]
+    direction TB
+    subgraph UserDomain["User + Role Domain"]
+      direction LR
+      AdminServices["lib/admin<br/>Admin consoles, mentor verification,<br/>user provisioning, policies"]
+      MentorServices["lib/mentor<br/>Mentor profile, availability,<br/>application lifecycle"]
+      ProfileServices["lib/profile<br/>Mentee and mentor profile mapping"]
+    end
+    subgraph LearningDomain["Learning + Sessions"]
+      direction LR
+      BookingServices["lib/bookings + lib/meetings<br/>Session booking, policy checks,<br/>LiveKit meeting access"]
+      ContentServices["lib/content + lib/courses + lib/learning<br/>Mentor content, courses, enrollments,<br/>learning analytics"]
+      RecordingServices["lib/recordings + lib/livekit<br/>Recording lifecycle and playback"]
+    end
+    subgraph PlatformDomain["Platform Domain"]
+      direction LR
+      MessagingServices["lib/messaging<br/>Threads, permissions, SSE"]
+      NotificationServices["lib/notifications<br/>Notification records and delivery data"]
+      PaymentServices["lib/payments + lib/subscriptions<br/>Razorpay checkout, plans, limits"]
+      AIChatbotServices["lib/chatbot<br/>AI chat flows and message insights"]
+    end
+  end
+
+  AdminRouter --> AdminServices
+  MentorRouter --> MentorServices
+  ProfileRouter --> ProfileServices
+  BookingRouter --> BookingServices
+  ContentRouter --> ContentServices
+  LearningRouter --> ContentServices
+  MessagingRouter --> MessagingServices
+  NotificationsRouter --> NotificationServices
+  PaymentsRouter --> PaymentServices
+  SubscriptionsRouter --> PaymentServices
+  AnalyticsRouter --> AdminServices
+  ChatbotRouter --> AIChatbotServices
+  RecordingsRouter --> RecordingServices
+  RestRoutes --> AdminServices
+  RestRoutes --> MentorServices
+  RestRoutes --> ContentServices
+  RestRoutes --> PaymentServices
+  RestRoutes --> RecordingServices
+
+  subgraph Persistence["Persistence Layer"]
+    direction LR
+    Drizzle["Drizzle ORM<br/>lib/db"]
+    Schema["Schema modules<br/>users, roles, mentors, mentees,<br/>content, bookings, payments,<br/>notifications, audit, availability"]
+    Postgres["PostgreSQL<br/>DATABASE_URL"]
+    Storage["Object Storage<br/>Supabase Storage or S3"]
+  end
+
+  AdminServices --> Drizzle
+  MentorServices --> Drizzle
+  BookingServices --> Drizzle
+  ContentServices --> Drizzle
+  MessagingServices --> Drizzle
+  PaymentServices --> Drizzle
+  ProfileServices --> Drizzle
+  NotificationServices --> Drizzle
+  AIChatbotServices --> Drizzle
+  RecordingServices --> Drizzle
+  BetterAuthRoutes --> Drizzle
+  Drizzle --> Schema
+  Schema --> Postgres
+
+  MentorServices --> Storage
+  ContentServices --> Storage
+  RecordingServices --> Storage
+  RestRoutes --> Storage
+
+  subgraph External["External Services"]
+    direction LR
+    GoogleOAuth["Google OAuth"]
+    LinkedInOAuth["LinkedIn OAuth"]
+    SMTP["Email provider<br/>Nodemailer SMTP"]
+    Razorpay["Razorpay<br/>Checkout + webhooks"]
+    LiveKit["LiveKit<br/>Rooms, tokens, webhooks"]
+    GoogleAI["Google AI SDK / Gemini<br/>Chatbot and AI features"]
+  end
+
+  BetterAuthRoutes --> GoogleOAuth
+  BetterAuthRoutes --> LinkedInOAuth
+  AdminServices --> SMTP
+  MentorServices --> SMTP
+  PaymentServices --> Razorpay
+  RestRoutes --> Razorpay
+  BookingServices --> LiveKit
+  RecordingServices --> LiveKit
+  RestRoutes --> LiveKit
+  AIChatbotServices --> GoogleAI
+
+  subgraph CrossCutting["Cross-Cutting Concerns"]
+    direction LR
+    Guards["lib/api/guards<br/>Role checks for admin, mentor, mentee"]
+    AccessPolicy["lib/access-policy<br/>Runtime access policy checks"]
+    Audit["lib/audit + lib/db/audit<br/>Admin, profile, session audit trails"]
+    Validation["lib/validations + zod schemas<br/>Input contracts"]
+  end
+
+  TRPCRoute --> Guards
+  RestRoutes --> Guards
+  AdminServices --> AccessPolicy
+  BookingServices --> AccessPolicy
+  PaymentServices --> AccessPolicy
+  AdminServices --> Audit
+  MentorServices --> Audit
+  BookingServices --> Audit
+  TRPCRoute --> Validation
+  RestRoutes --> Validation
+          </pre>
+        </div>
+      </section>
+
+      <section class="sequence">
+        <div class="section-header">
+          <div>
+            <h2>Primary Runtime Flow</h2>
+            <p class="section-note">
+              Common path for dashboard interactions and feature mutations.
+            </p>
+          </div>
+        </div>
+        <div class="diagram">
+          <pre class="mermaid">
+sequenceDiagram
+  participant User as Browser User
+  participant UI as Next.js UI
+  participant Hook as TanStack Query Hook
+  participant TRPC as tRPC Endpoint
+  participant Service as Domain Service
+  participant DB as Drizzle + PostgreSQL
+  participant Ext as External Service
+
+  User->>UI: Interact with dashboard or public page
+  UI->>Hook: Query or mutation
+  Hook->>TRPC: Call router procedure
+  TRPC->>Service: Validate input and execute use case
+  Service->>DB: Read or write application data
+  Service-->>Ext: Optional email, payment, LiveKit, AI, or storage call
+  DB-->>Service: Persisted result
+  Service-->>TRPC: Typed response
+  TRPC-->>Hook: JSON response
+  Hook-->>UI: Cached UI state update
+  UI-->>User: Updated screen
+          </pre>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-header">
+          <div>
+            <h2>System Boundary Architecture</h2>
+            <p class="section-note">
+              Internal platform services, persistence, and external providers shown as a readable system-level map.
+            </p>
+          </div>
+        </div>
+        <div class="diagram">
+          <div class="system-boundary" aria-label="Internal and external system architecture diagram">
+            <div class="boundary-row">
+              <div class="boundary-box">
+                <h3 class="boundary-title">Internal Application Boundary</h3>
+                <div class="service-grid">
+                  <div class="service-card">
+                    <strong>Next.js Web Application</strong>
+                    <span>App Router pages, role dashboards, feature components, and client providers.</span>
+                  </div>
+                  <div class="service-card">
+                    <strong>tRPC API Layer</strong>
+                    <span>Typed procedure boundary for admin, mentor, mentee, booking, content, payment, and messaging operations.</span>
+                  </div>
+                  <div class="service-card">
+                    <strong>REST Route Handlers</strong>
+                    <span>Multipart uploads, mentor applications, admin mentor creation, webhooks, recordings, locations, and SSE.</span>
+                  </div>
+                  <div class="service-card">
+                    <strong>Domain Services</strong>
+                    <span>Business rules in lib/admin, lib/mentor, lib/bookings, lib/content, lib/payments, lib/messaging, and related modules.</span>
+                  </div>
+                  <div class="service-card">
+                    <strong>Authorization Guards</strong>
+                    <span>Role checks, session validation, access policies, subscription limits, and admin-only protections.</span>
+                  </div>
+                  <div class="service-card">
+                    <strong>Audit and Notifications</strong>
+                    <span>Admin audit trails, mentor profile audit, session audit, notification records, and email event tracking.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="connector-band">
+              <div class="connector-line"></div>
+              Internal services read/write data and call providers
+              <div class="connector-line"></div>
+            </div>
+
+            <div class="boundary-row">
+              <div class="boundary-box">
+                <h3 class="boundary-title">Internal Persistence Boundary</h3>
+                <div class="service-grid">
+                  <div class="service-card">
+                    <strong>PostgreSQL Database</strong>
+                    <span>Primary relational store for users, roles, mentors, mentees, sessions, bookings, content, payments, and audits.</span>
+                  </div>
+                  <div class="service-card">
+                    <strong>Drizzle ORM</strong>
+                    <span>Schema modules, typed queries, migrations, and server-side database access.</span>
+                  </div>
+                  <div class="service-card">
+                    <strong>Object Storage</strong>
+                    <span>Supabase Storage or S3 abstraction for profile images, resumes, mentor content files, and recordings.</span>
+                  </div>
+                  <div class="service-card">
+                    <strong>Auth Tables</strong>
+                    <span>BetterAuth-compatible users, sessions, accounts, and verification records stored through Drizzle.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="connector-band">
+              <div class="connector-line"></div>
+              External integrations
+              <div class="connector-line"></div>
+            </div>
+
+            <div class="boundary-row">
+              <div class="boundary-box external-boundary">
+                <h3 class="boundary-title">External Service Boundary</h3>
+                <div class="service-grid">
+                  <div class="service-card">
+                    <strong>Google OAuth</strong>
+                    <span>Social authentication provider configured through BetterAuth.</span>
+                  </div>
+                  <div class="service-card">
+                    <strong>LinkedIn OAuth</strong>
+                    <span>Additional social authentication provider for account login flows.</span>
+                  </div>
+                  <div class="service-card">
+                    <strong>Razorpay</strong>
+                    <span>Session checkout, payment processing, and webhook-driven payment status updates.</span>
+                  </div>
+                  <div class="service-card">
+                    <strong>LiveKit</strong>
+                    <span>Video rooms, access tokens, room events, recording webhooks, and session playback integration.</span>
+                  </div>
+                  <div class="service-card">
+                    <strong>Email Provider</strong>
+                    <span>Nodemailer SMTP delivery for mentor application, verification, coupon, and notification emails.</span>
+                  </div>
+                  <div class="service-card">
+                    <strong>Google AI / Gemini</strong>
+                    <span>AI chatbot flows, mentor discovery assistance, and AI-backed insight features.</span>
+                  </div>
+                  <div class="service-card">
+                    <strong>Supabase Storage or S3</strong>
+                    <span>External object storage provider behind the internal lib/storage abstraction.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        Generated for the repository root. If the architecture changes, update this file alongside the related code.
+      </footer>
+    </main>
+
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: "dark",
+        securityLevel: "loose",
+        flowchart: {
+          htmlLabels: true,
+          curve: "basis",
+          nodeSpacing: 55,
+          rankSpacing: 80,
+          padding: 28,
+          useMaxWidth: true
+        },
+        themeVariables: {
+          background: "#0f172a",
+          primaryColor: "#172033",
+          primaryTextColor: "#e5e7eb",
+          primaryBorderColor: "#38bdf8",
+          lineColor: "#64748b",
+          secondaryColor: "#111827",
+          tertiaryColor: "#1f2937",
+          clusterBkg: "#111827",
+          clusterBorder: "#334155",
+          fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+        }
+      });
+    </script>
+  </body>
+</html>

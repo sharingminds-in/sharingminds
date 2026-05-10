@@ -8,6 +8,7 @@ export type DashboardSectionKey =
   | 'dashboard'
   | 'explore'
   | 'saved'
+  | 'users'
   | 'mentors'
   | 'courses'
   | 'my-courses'
@@ -65,6 +66,14 @@ export const DASHBOARD_SECTIONS = [
     key: 'saved',
     title: 'Saved Items',
     audiences: ['mentor', 'mentee'],
+    scopes: ['root', 'dashboard'],
+    shellMode: 'page',
+    navigation: true,
+  },
+  {
+    key: 'users',
+    title: 'Users',
+    audiences: ['admin'],
     scopes: ['root', 'dashboard'],
     shellMode: 'page',
     navigation: true,
@@ -262,7 +271,9 @@ export function getNavigationSections(
   audience: DashboardAudience,
   scope: DashboardNavigationScope
 ) {
-  return DASHBOARD_SECTIONS.filter(
+  const sections: readonly DashboardSectionDefinition[] = DASHBOARD_SECTIONS;
+
+  return sections.filter(
     (section) =>
       section.navigation &&
       section.audiences.includes(audience) &&

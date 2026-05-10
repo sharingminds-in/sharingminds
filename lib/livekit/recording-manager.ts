@@ -17,7 +17,7 @@
  * - Fail-loud error handling
  */
 
-import { EgressClient, EncodingOptionsPreset } from 'livekit-server-sdk';
+import { EgressClient } from 'livekit-server-sdk';
 import { db } from '@/lib/db';
 import {
   livekitRooms,
@@ -33,16 +33,17 @@ import {
   createCloudRecordingFileOutput,
   isCloudRecordingEnabled,
 } from './cloud-recording-output';
+import {
+  resolveRecordingEncodingOptions,
+  type RecordingEncodingConfig,
+} from './recording-encoding';
 
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
 
-interface RecordingConfig {
+interface RecordingConfig extends RecordingEncodingConfig {
   enabled: boolean;
-  resolution?: string;
-  fps?: number;
-  bitrate?: number;
   audioOnly?: boolean;
 }
 
@@ -161,9 +162,9 @@ export async function startRecording(sessionId: string) {
     const fileType = audioOnly ? 'ogg' : 'mp4';
     const storagePath = buildRecordingStoragePath(sessionId, fileType);
     const output = createCloudRecordingFileOutput(storagePath);
-    const encodingPreset = audioOnly
+    const encodingOptions = audioOnly
       ? undefined
-      : resolveEncodingPreset(recordingConfig);
+      : resolveRecordingEncodingOptions(recordingConfig);
 
     console.log(
       `📡 Starting LiveKit Cloud egress for room ${room.roomName} -> ${storagePath}`
@@ -177,7 +178,7 @@ export async function startRecording(sessionId: string) {
         layout: 'grid',
         audioOnly,
         videoOnly: false,
-        encodingOptions: encodingPreset,
+        encodingOptions,
       }
     )) as EgressResponse;
 
@@ -216,7 +217,7 @@ export async function startRecording(sessionId: string) {
         sessionId,
         roomName: room.roomName,
         audioOnly,
-        encodingPreset: encodingPreset ?? null,
+        encodingOptions: encodingOptions ?? null,
         storagePath,
       },
       source: 'api',
@@ -415,35 +416,3 @@ function buildRecordingStoragePath(
   return `sessions/${sessionId}/${timestamp}.${fileType}`;
 }
 
-function resolveEncodingPreset(
-  recordingConfig: RecordingConfig
-): EncodingOptionsPreset {
-  const resolution = (recordingConfig.resolution || '1280x720').toLowerCase();
-  const fps = recordingConfig.fps ?? 30;
-  const isPortrait = resolution === '720x1280' || resolution === '1080x1920';
-  const is1080p =
-    resolution === '1920x1080' || resolution === '1080x1920';
-  const is60fps = fps >= 60;
-
-  if (isPortrait && is1080p) {
-    return is60fps
-      ? EncodingOptionsPreset.PORTRAIT_H264_1080P_60
-      : EncodingOptionsPreset.PORTRAIT_H264_1080P_30;
-  }
-
-  if (isPortrait) {
-    return is60fps
-      ? EncodingOptionsPreset.PORTRAIT_H264_720P_60
-      : EncodingOptionsPreset.PORTRAIT_H264_720P_30;
-  }
-
-  if (is1080p) {
-    return is60fps
-      ? EncodingOptionsPreset.H264_1080P_60
-      : EncodingOptionsPreset.H264_1080P_30;
-  }
-
-  return is60fps
-    ? EncodingOptionsPreset.H264_720P_60
-    : EncodingOptionsPreset.H264_720P_30;
-}

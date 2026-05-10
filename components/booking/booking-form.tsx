@@ -8,7 +8,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Calendar, Clock, Video, Headphones, MessageSquare, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface Mentor {
@@ -158,87 +157,63 @@ export function BookingForm({
   const savings = planTotal !== null ? Math.max(0, basePrice - planTotal) : 0;
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-8 scroll-smooth">
-        
-        {/* Selected Time Banner */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-900/30 rounded-lg p-4 flex items-center gap-4">
-           <div className="p-2 bg-white dark:bg-blue-900/50 rounded-md shadow-sm">
-             <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-           </div>
-           <div>
-             <p className="text-xs text-blue-600 dark:text-blue-300 font-semibold uppercase tracking-wider">Scheduled Time</p>
-             <div className="flex items-center gap-2 text-sm font-medium text-slate-800 dark:text-slate-100">
-                <span>{format(scheduledAt, 'EEEE, MMMM d, yyyy')}</span>
-                <span className="w-1 h-1 bg-slate-400 rounded-full" />
-                <span>{format(scheduledAt, 'h:mm a')}</span>
-             </div>
-           </div>
-        </div>
-
-        <form id="booking-form" onSubmit={handleSubmit} className="space-y-8">
-          
-          {/* Session Type Selector */}
+    <div className="flex h-full flex-col px-5 pb-5 pt-2">
+      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(260px,0.75fr)]">
+        <form id="booking-form" onSubmit={handleSubmit} className="grid content-start gap-4">
           {!shouldHideSessionTypeSelector && (
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">Session Type</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Session type
+              </Label>
+              <div className="grid gap-2 md:grid-cols-2">
                 {[
                   {
                     value: 'FREE',
-                    label: 'Free Intro Session',
+                    label: 'Free intro',
                     helper: freeAvailable
-                      ? 'One-time, 30 minutes max'
-                      : freeDisabledReason || 'Not available for this mentor',
+                      ? '30 minutes'
+                      : freeDisabledReason || 'Unavailable',
                     disabled: !freeAvailable,
                   },
                   {
                     value: 'PAID',
-                    label: 'Paid Session',
-                    helper: paidAvailable ? 'Paid sessions up to 45 minutes' : 'Not available for this mentor',
+                    label: 'Paid session',
+                    helper: paidAvailable ? 'Up to 45 minutes' : 'Unavailable',
                     disabled: !paidAvailable,
                   },
-                ].filter((option) => (option.value === 'FREE' ? showFreeOption : true)).map((option) => {
-                  const isSelected = formData.sessionType === option.value;
-                  return (
-                    <div
-                      key={option.value}
-                      onClick={() => handleSessionTypeChange(option.value as 'FREE' | 'PAID')}
-                      className={cn(
-                        "relative p-4 rounded-xl border-2 transition-all duration-200 flex flex-col gap-2 group",
-                        option.disabled
-                          ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-900/40"
-                          : "cursor-pointer hover:border-blue-300 dark:hover:border-blue-700",
-                        isSelected
-                          ? "border-blue-600 bg-blue-50/50 dark:bg-blue-900/20 dark:border-blue-500"
-                          : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900"
-                      )}
-                    >
-                      <p className={cn("font-semibold text-sm", isSelected ? "text-blue-900 dark:text-blue-100" : "text-slate-900 dark:text-slate-100")}>
-                        {option.label}
-                      </p>
-                      <p className="text-xs text-slate-500">{option.helper}</p>
-                      {option.value === 'FREE' && freeRemaining !== null && (
-                        <p className="text-[10px] text-slate-400">Remaining: {freeRemaining}</p>
-                      )}
-                      {option.value === 'PAID' && (
-                        <>
-                          {mentorRemaining !== null && (
-                            <p className="text-[10px] text-slate-400">
-                              Mentor sessions left: {mentorRemaining}
-                            </p>
-                          )}
-                          {paidRemaining !== null && (
-                            <p className="text-[10px] text-slate-400">
-                              Paid quotas left: {paidRemaining}
-                            </p>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
+                ]
+                  .filter((option) =>
+                    option.value === 'FREE' ? showFreeOption : true
+                  )
+                  .map((option) => {
+                    const isSelected = formData.sessionType === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() =>
+                          handleSessionTypeChange(option.value as 'FREE' | 'PAID')
+                        }
+                        disabled={option.disabled}
+                        className={cn(
+                          "rounded-xl border-2 px-3 py-2 text-left transition-all",
+                          option.disabled
+                            ? "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-400 dark:border-slate-800 dark:bg-slate-900/40"
+                            : "hover:border-blue-300 dark:hover:border-blue-700",
+                          isSelected
+                            ? "border-blue-600 bg-blue-50/50 dark:border-blue-500 dark:bg-blue-900/20"
+                            : "border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900"
+                        )}
+                      >
+                        <span className="block text-sm font-semibold">
+                          {option.label}
+                        </span>
+                        <span className="block text-xs text-slate-500">
+                          {option.helper}
+                        </span>
+                      </button>
+                    );
+                  })}
               </div>
               {!hasAnyAvailability && (
                 <p className="text-xs text-red-500">
@@ -248,78 +223,87 @@ export function BookingForm({
             </div>
           )}
 
-          {/* Duration Selector */}
-          <div className="space-y-3">
-            <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">Session Duration</Label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {DURATION_OPTIONS.filter((option) => {
-                if (formData.sessionType === 'FREE') return option.value === 30;
-                if (formData.sessionType === 'PAID') return option.value <= 45;
-                return true;
-              }).map((option) => {
-                const isSelected = formData.duration === option.value;
-                return (
-                  <div
-                    key={option.value}
-                    onClick={() => handleInputChange('duration', option.value)}
-                    className={cn(
-                      "cursor-pointer relative p-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center justify-center gap-1 text-center group hover:border-blue-300 dark:hover:border-blue-700",
-                      isSelected 
-                        ? "border-blue-600 bg-blue-50/50 dark:bg-blue-900/20 dark:border-blue-500" 
-                        : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900"
-                    )}
-                  >
-                    {isSelected && <div className="absolute top-2 right-2 text-blue-600 dark:text-blue-400"><CheckCircle2 className="w-3.5 h-3.5" /></div>}
-                    <span className={cn("font-bold text-sm", isSelected ? "text-blue-700 dark:text-blue-300" : "text-slate-700 dark:text-slate-300")}>
-                      {option.label}
-                    </span>
-                    {mentor.hourlyRate && (
-                      <span className="text-xs text-slate-500 font-medium">
-                        {formatCurrency(mentor.hourlyRate * option.price, mentor.currency)}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Duration
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                {DURATION_OPTIONS.filter((option) => {
+                  if (formData.sessionType === 'FREE') return option.value === 30;
+                  if (formData.sessionType === 'PAID') return option.value <= 45;
+                  return true;
+                }).map((option) => {
+                  const isSelected = formData.duration === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleInputChange('duration', option.value)}
+                      className={cn(
+                        "relative rounded-xl border-2 px-3 py-2 text-left transition-all hover:border-blue-300 dark:hover:border-blue-700",
+                        isSelected
+                          ? "border-blue-600 bg-blue-50/50 dark:border-blue-500 dark:bg-blue-900/20"
+                          : "border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900"
+                      )}
+                    >
+                      {isSelected && (
+                        <CheckCircle2 className="absolute right-2 top-2 h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                      )}
+                      <span className="block text-sm font-bold">
+                        {option.label}
                       </span>
-                    )}
-                  </div>
-                );
-              })}
+                      {mentor.hourlyRate && (
+                        <span className="block text-xs text-slate-500">
+                          {formatCurrency(mentor.hourlyRate * option.price, mentor.currency)}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Meeting format
+              </Label>
+              <div className="grid gap-2">
+                {MEETING_TYPES.map((type) => {
+                  const Icon = type.icon;
+                  const isSelected = formData.meetingType === type.value;
+                  return (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => handleInputChange('meetingType', type.value)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl border-2 px-3 py-2 text-left transition-all hover:border-blue-300 dark:hover:border-blue-700",
+                        isSelected
+                          ? "border-blue-600 bg-blue-50/50 dark:border-blue-500 dark:bg-blue-900/20"
+                          : "border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900"
+                      )}
+                    >
+                      <Icon className="h-4 w-4 text-slate-500" />
+                      <span>
+                        <span className="block text-sm font-semibold">
+                          {type.label}
+                        </span>
+                        <span className="block text-xs text-slate-500">
+                          {type.description}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          {/* Meeting Type Selector */}
-          <div className="space-y-3">
-            <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">How do you want to meet?</Label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {MEETING_TYPES.map((type) => {
-                const Icon = type.icon;
-                const isSelected = formData.meetingType === type.value;
-                return (
-                  <div
-                    key={type.value}
-                    onClick={() => handleInputChange('meetingType', type.value)}
-                    className={cn(
-                      "cursor-pointer relative p-4 rounded-xl border-2 transition-all duration-200 flex flex-col gap-2 group hover:border-blue-300 dark:hover:border-blue-700",
-                      isSelected 
-                        ? "border-blue-600 bg-blue-50/50 dark:bg-blue-900/20 dark:border-blue-500" 
-                        : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900"
-                    )}
-                  >
-                    <div className={cn("p-2 w-fit rounded-lg", isSelected ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600" : "bg-slate-100 dark:bg-slate-800 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-500")}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className={cn("font-semibold text-sm", isSelected ? "text-blue-900 dark:text-blue-100" : "text-slate-900 dark:text-slate-100")}>{type.label}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{type.description}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Text Inputs */}
-          <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="title" className="text-sm font-semibold">
-                Session Topic <span className="text-red-500">*</span>
+                Session topic <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="title"
@@ -327,65 +311,115 @@ export function BookingForm({
                 value={formData.title}
                 onChange={(e) => handleInputChange('title', e.target.value)}
                 className={cn(
-                   "h-11 border-slate-200 focus:ring-blue-500/20 transition-all",
-                   errors.title ? 'border-red-500 focus-visible:ring-red-200' : ''
+                  "h-10 border-slate-200 focus:ring-blue-500/20",
+                  errors.title ? 'border-red-500 focus-visible:ring-red-200' : ''
                 )}
               />
-              {errors.title && <p className="text-xs text-red-500 font-medium">{errors.title}</p>}
+              {errors.title && (
+                <p className="text-xs font-medium text-red-500">{errors.title}</p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="description" className="text-sm font-semibold">
-                Additional Details (Optional)
+                Additional details
               </Label>
               <Textarea
                 id="description"
-                placeholder="Share any background info or specific questions..."
+                placeholder="Optional context or questions"
                 value={formData.description}
                 onChange={(e) => handleInputChange('description', e.target.value)}
-                rows={3}
+                rows={2}
                 className="resize-none border-slate-200 focus:ring-blue-500/20"
               />
             </div>
           </div>
-
-          {/* Pricing Summary (Compact) */}
-          {mentor.hourlyRate && (
-            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800">
-               <div>
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Estimated Total</p>
-                  <p className="text-xs text-slate-500">
-                    {formData.duration} mins @ {formatCurrency(mentorHourlyRateValue, mentor.currency)}/hr
-                  </p>
-               </div>
-               <div className="flex flex-col items-end gap-1 text-right">
-                  {planTotal !== null && (
-                    <span className="text-xs text-slate-400 line-through">
-                      {formatCurrency(basePrice, mentor.currency)}
-                    </span>
-                  )}
-                  <span className="text-2xl font-bold text-slate-900 dark:text-white">
-                    {formatCurrency(displayPrice, mentor.currency)}
-                  </span>
-                  {planTotal !== null && (
-                    <span className="text-xs text-blue-600 font-semibold uppercase tracking-wide">
-                      Your plan rate
-                    </span>
-                  )}
-                  {planTotal !== null && savings > 0 && (
-                    <span className="text-xs text-green-600 font-semibold">
-                      Save {formatCurrency(savings, mentor.currency)} with AI booking
-                    </span>
-                  )}
-               </div>
-            </div>
-          )}
-
         </form>
+
+        <Card className="h-fit border-slate-200 dark:border-slate-800">
+          <CardContent className="space-y-4 p-4">
+            <div className="rounded-xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-3 dark:border-blue-900/30 dark:from-blue-900/20 dark:to-indigo-900/20">
+              <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-300">
+                Scheduled time
+              </p>
+              <div className="mt-2 space-y-1 text-sm font-medium">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  {format(scheduledAt, 'EEE, MMM d, yyyy')}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  {format(scheduledAt, 'h:mm a')}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Session type</span>
+                <span className="font-medium">{formData.sessionType}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Duration</span>
+                <span className="font-medium">{formData.duration} min</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Format</span>
+                <span className="font-medium capitalize">
+                  {formData.meetingType}
+                </span>
+              </div>
+              {freeRemaining !== null && formData.sessionType === 'FREE' && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Free sessions left</span>
+                  <span className="font-medium">{freeRemaining}</span>
+                </div>
+              )}
+              {mentorRemaining !== null && formData.sessionType === 'PAID' && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Mentor sessions left</span>
+                  <span className="font-medium">{mentorRemaining}</span>
+                </div>
+              )}
+              {paidRemaining !== null && formData.sessionType === 'PAID' && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Paid quota left</span>
+                  <span className="font-medium">{paidRemaining}</span>
+                </div>
+              )}
+            </div>
+
+            {mentor.hourlyRate && (
+              <div className="rounded-xl border bg-slate-50 p-3 dark:bg-slate-900/50">
+                <p className="text-xs text-muted-foreground">Estimated total</p>
+                <div className="mt-1 flex items-end justify-between gap-3">
+                  <div className="text-xs text-slate-500">
+                    {formData.duration} mins @{' '}
+                    {formatCurrency(mentorHourlyRateValue, mentor.currency)}/hr
+                  </div>
+                  <div className="text-right">
+                    {planTotal !== null && (
+                      <p className="text-xs text-slate-400 line-through">
+                        {formatCurrency(basePrice, mentor.currency)}
+                      </p>
+                    )}
+                    <p className="text-2xl font-bold">
+                      {formatCurrency(displayPrice, mentor.currency)}
+                    </p>
+                  </div>
+                </div>
+                {planTotal !== null && savings > 0 && (
+                  <p className="mt-2 text-xs font-semibold text-green-600">
+                    Save {formatCurrency(savings, mentor.currency)} with AI booking
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Footer Actions */}
-      <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950">
+      <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
         <Button
           type="button"
           variant="ghost"

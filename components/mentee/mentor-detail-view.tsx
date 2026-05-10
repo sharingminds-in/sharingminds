@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useRef, useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -61,24 +61,128 @@ interface MentorDetailViewProps {
 }
 
 type TabType = "overview" | "content" | "reviews" | "achievements" | "mentoring_style"
+type MentorTrailItem = { id: string; name: string }
+
+function getMentorInitials(name?: string | null) {
+  return name?.split(' ').map((part) => part[0]).join('').substring(0, 2) || 'M'
+}
+
+function parseExpertiseList(expertise?: string | null) {
+  if (!expertise) return []
+
+  const raw = expertise.trim()
+  if (!raw) return []
+
+  try {
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+        .map((item) => item.trim())
+        .slice(0, 3)
+    }
+  } catch {
+    // Existing mentor rows commonly store expertise as comma-separated text.
+  }
+
+  return raw
+    .split(/[,;|]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+}
+
+function formatMentorRate(rate?: string | number | null, currency?: string | null) {
+  const amount = Number(rate)
+  if (!Number.isFinite(amount) || amount <= 0) return 'Free'
+
+  const prefix = currency === 'INR' ? 'INR ' : currency && currency !== 'USD' ? `${currency} ` : '$'
+  return `${prefix}${amount}/hr`
+}
 
 export function MentorDetailView({ mentorId, onBack, bookingSource = 'default' }: MentorDetailViewProps) {
   const searchParams = useSearchParams()
+  const pathname = usePathname()
   const router = useRouter()
   const urlSource = searchParams.get('from')
   const resolvedSource = bookingSource === 'default' && urlSource === 'explore' ? 'explore' : bookingSource
-  const { mentor, loading, error } = useMentorDetail(mentorId)
+  const [activeMentorId, setActiveMentorId] = useState<string | null>(mentorId)
+  const { mentor, loading, error } = useMentorDetail(activeMentorId)
   const { session, isAdmin, mentorAccess, menteeAccess, primaryRole } = useAuth()
   const trpcClient = useTRPCClient()
+  const pageTopRef = useRef<HTMLDivElement | null>(null)
+  const recommendationsRef = useRef<HTMLDivElement | null>(null)
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<TabType>("overview")
   const [selectedContentItem, setSelectedContentItem] = useState<any>(null)
   const [isContentDetailOpen, setIsContentDetailOpen] = useState(false)
+  const [mentorTrail, setMentorTrail] = useState<MentorTrailItem[]>(
+    () => mentorId ? [{ id: mentorId, name: 'Current mentor' }] : []
+  )
+  const [mentorTrailIndex, setMentorTrailIndex] = useState(mentorId ? 0 : -1)
+
+  useEffect(() => {
+    if (!mentorId) {
+      setActiveMentorId(null)
+      setMentorTrail([])
+      setMentorTrailIndex(-1)
+      return
+    }
+
+    setActiveMentorId(mentorId)
+    setMentorTrail((items) => {
+      const existingIndex = items.findIndex((item) => item.id === mentorId)
+      if (existingIndex >= 0) {
+        setMentorTrailIndex(existingIndex)
+        return items
+      }
+
+      setMentorTrailIndex(0)
+      return [{ id: mentorId, name: 'Current mentor' }]
+    })
+  }, [mentorId])
+
+  useEffect(() => {
+    if (!mentor?.id) return
+
+    const displayName = mentor.fullName || mentor.name || 'Current mentor'
+    setMentorTrail((items) =>
+      items.map((item) =>
+        item.id === mentor.id && item.name !== displayName
+          ? { ...item, name: displayName }
+          : item
+      )
+    )
+  }, [mentor?.id, mentor?.fullName, mentor?.name])
 
   const { data: mentorContentItems, isLoading: isContentLoading } = useQuery({
     queryKey: ['public', 'mentor-content', mentor?.id],
     queryFn: () => trpcClient.public.getMentorPublicContent.query({ mentorId: mentor!.id }),
+    enabled: !!mentor?.id,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const {
+    data: otherAvailableMentors = [],
+    isLoading: isOtherMentorsLoading,
+    isError: isOtherMentorsError,
+  } = useQuery({
+    queryKey: ['public', 'other-available-mentors', mentor?.id, mentor?.userId],
+    queryFn: async () => {
+      const result = await trpcClient.public.listMentors.query({
+        page: 1,
+        pageSize: 11,
+        availableOnly: true,
+      })
+
+      return result.mentors
+        .filter((item) => {
+          const isCurrentMentor = item.id === mentor?.id || item.userId === mentor?.userId
+          return !isCurrentMentor && item.verificationStatus === 'VERIFIED' && item.isAvailable
+        })
+        .slice(0, 10)
+    },
     enabled: !!mentor?.id,
     staleTime: 5 * 60 * 1000,
   })
@@ -118,6 +222,91 @@ export function MentorDetailView({ mentorId, onBack, bookingSource = 'default' }
     toast.success("Message request sent successfully! The mentor will be notified.")
   }
 
+  const resetMentorDetailState = () => {
+    setActiveTab("overview")
+    setSelectedContentItem(null)
+    setIsContentDetailOpen(false)
+    setIsBookingModalOpen(false)
+    setIsMessageModalOpen(false)
+    pageTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const pushMentorDetailUrl = (nextMentorId: string) => {
+    const section = searchParams.get('section')
+    const isDashboardDetailRoute = section === 'mentor-detail' || pathname === '/dashboard'
+
+    if (!isDashboardDetailRoute) return
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('section', 'mentor-detail')
+    params.set('mentor', nextMentorId)
+
+    if (resolvedSource === 'explore' && !params.get('from')) {
+      params.set('from', 'explore')
+    }
+
+    router.push(`${pathname}?${params.toString()}`, { scroll: false })
+  }
+
+  const handleOtherMentorSelect = (nextMentorId: string, nextMentorName?: string | null) => {
+    if (nextMentorId === activeMentorId) return
+
+    const currentTrail = mentorTrailIndex >= 0
+      ? mentorTrail.slice(0, mentorTrailIndex + 1)
+      : []
+    const normalizedTrail = [...currentTrail]
+
+    if (activeMentorId) {
+      const currentItem = {
+        id: activeMentorId,
+        name: mentor?.fullName || mentor?.name || 'Current mentor',
+      }
+      const lastItem = normalizedTrail[normalizedTrail.length - 1]
+
+      if (!lastItem || lastItem.id !== currentItem.id) {
+        normalizedTrail.push(currentItem)
+      } else if (lastItem.name !== currentItem.name) {
+        normalizedTrail[normalizedTrail.length - 1] = currentItem
+      }
+    }
+
+    const nextTrail = [
+      ...normalizedTrail,
+      { id: nextMentorId, name: nextMentorName || 'Mentor' },
+    ]
+
+    setMentorTrail(nextTrail)
+    setMentorTrailIndex(nextTrail.length - 1)
+    setActiveMentorId(nextMentorId)
+    pushMentorDetailUrl(nextMentorId)
+    resetMentorDetailState()
+  }
+
+  const handleMentorTrailJump = (nextIndex: number) => {
+    const target = mentorTrail[nextIndex]
+    if (!target || target.id === activeMentorId) return
+
+    setMentorTrailIndex(nextIndex)
+    setActiveMentorId(target.id)
+    pushMentorDetailUrl(target.id)
+    resetMentorDetailState()
+  }
+
+  const scrollRecommendations = (direction: 'previous' | 'next') => {
+    const container = recommendationsRef.current
+    if (!container) return
+
+    const scrollAmount = Math.min(container.clientWidth * 0.9, 720)
+    container.scrollBy({
+      left: direction === 'next' ? scrollAmount : -scrollAmount,
+      behavior: 'smooth',
+    })
+  }
+
+  const canGoToPreviousMentor = mentorTrailIndex > 0
+  const canGoToNextMentor =
+    mentorTrailIndex >= 0 && mentorTrailIndex < mentorTrail.length - 1
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -156,7 +345,7 @@ export function MentorDetailView({ mentorId, onBack, bookingSource = 'default' }
     )
   }
 
-  const initials = mentor.name?.split(' ').map(n => n[0]).join('').substring(0, 2) || 'M';
+  const initials = getMentorInitials(mentor.name)
 
   // --- ANIMATION VARIANTS ---
   const fadeIn = {
@@ -597,8 +786,240 @@ export function MentorDetailView({ mentorId, onBack, bookingSource = 'default' }
     </motion.div>
   )
 
+  const renderOtherAvailableMentors = () => (
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
+      <div className="relative overflow-hidden rounded-[2rem] border border-border bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.16),transparent_34%),linear-gradient(135deg,hsl(var(--card)),hsl(var(--card))_62%,rgba(30,64,175,0.08))] shadow-sm">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" />
+
+        <div className="p-6 sm:p-8">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-2xl">
+              <Badge variant="outline" className="mb-3 bg-blue-50/80 text-blue-700 border-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60">
+                <Users className="w-3.5 h-3.5 mr-1.5" />
+                Verified availability
+              </Badge>
+              <h2 className="text-2xl font-bold tracking-tight text-foreground">Explore more available mentors</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Curated from verified mentors who are currently available for booking.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleMentorTrailJump(mentorTrailIndex - 1)}
+                disabled={!canGoToPreviousMentor}
+                className="rounded-full bg-background/80"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Previous mentor
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => handleMentorTrailJump(mentorTrailIndex + 1)}
+                disabled={!canGoToNextMentor}
+                className="rounded-full bg-background/80"
+              >
+                Next
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {mentorTrail.length > 1 && (
+            <div className="mt-5 rounded-2xl border border-border/80 bg-background/60 p-2 backdrop-blur">
+              <div className="flex items-center gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <span className="shrink-0 px-2 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                  Viewed
+                </span>
+                {mentorTrail.map((item, index) => {
+                  const isCurrent = index === mentorTrailIndex
+
+                  return (
+                    <button
+                      key={`${item.id}-${index}`}
+                      type="button"
+                      onClick={() => handleMentorTrailJump(index)}
+                      disabled={isCurrent}
+                      className={cn(
+                        "shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                        isCurrent
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : "bg-muted text-muted-foreground hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950/50 dark:hover:text-blue-300"
+                      )}
+                    >
+                      {item.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 sm:px-8 pb-8">
+          {isOtherMentorsLoading ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {[1, 2, 3].map((item) => (
+                <div key={item} className="rounded-3xl border border-border bg-background/85 p-5">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-14 w-14 rounded-2xl" />
+                    <div className="space-y-2 flex-1">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-4 w-full mt-5" />
+                  <Skeleton className="h-4 w-3/4 mt-2" />
+                  <div className="flex gap-2 mt-5">
+                    <Skeleton className="h-6 w-16 rounded-full" />
+                    <Skeleton className="h-6 w-20 rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : isOtherMentorsError ? (
+            <div className="rounded-2xl border border-dashed border-border bg-background/70 p-6 text-sm text-muted-foreground">
+              Unable to load other mentors right now.
+            </div>
+          ) : otherAvailableMentors.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border bg-background/70 p-6 text-sm text-muted-foreground">
+              No other verified available mentors were found.
+            </div>
+          ) : (
+            <div className="relative">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <Badge variant="secondary" className="rounded-full">
+                  {otherAvailableMentors.length} shown
+                </Badge>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Scroll mentors left"
+                    onClick={() => scrollRecommendations('previous')}
+                    className="h-9 w-9 rounded-full bg-background/90"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Scroll mentors right"
+                    onClick={() => scrollRecommendations('next')}
+                    className="h-9 w-9 rounded-full bg-background/90"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="pointer-events-none absolute bottom-0 left-0 top-14 z-10 w-10 bg-gradient-to-r from-card to-transparent" />
+              <div className="pointer-events-none absolute bottom-0 right-0 top-14 z-10 w-10 bg-gradient-to-l from-card to-transparent" />
+
+              <div
+                ref={recommendationsRef}
+                className="overflow-x-auto scroll-smooth snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                <div className="flex gap-4 pr-2">
+                  {otherAvailableMentors.map((otherMentor) => {
+                    const skills = parseExpertiseList(otherMentor.expertise)
+                    const rateLabel = formatMentorRate(otherMentor.hourlyRate, otherMentor.currency)
+
+                    return (
+                      <button
+                        key={otherMentor.id}
+                        type="button"
+                        aria-label={`View ${otherMentor.name || 'mentor'} profile`}
+                        onClick={() => handleOtherMentorSelect(otherMentor.id, otherMentor.name)}
+                        className="group w-[min(82vw,340px)] shrink-0 snap-start text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-3xl"
+                      >
+                        <Card className="h-full overflow-hidden border-border/90 bg-background/90 shadow-sm backdrop-blur transition-all duration-300 group-hover:-translate-y-1 group-hover:border-blue-300/70 group-hover:shadow-xl dark:group-hover:border-blue-900/80">
+                          <CardContent className="p-0">
+                            <div className="h-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-cyan-400 opacity-80" />
+                            <div className="p-5">
+                              <div className="flex items-start gap-3">
+                                <Avatar className="h-14 w-14 rounded-2xl border border-border shadow-sm">
+                                  <AvatarImage src={otherMentor.image || undefined} className="object-cover" />
+                                  <AvatarFallback className="rounded-2xl bg-slate-900 text-white font-semibold">
+                                    {getMentorInitials(otherMentor.name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <h3 className="truncate font-semibold text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                                      {otherMentor.name || 'Mentor'}
+                                    </h3>
+                                    <CheckCircle className="h-4 w-4 flex-shrink-0 text-blue-500" />
+                                  </div>
+                                  <p className="mt-1 truncate text-sm text-muted-foreground">
+                                    {[otherMentor.title, otherMentor.company].filter(Boolean).join(' at ') || otherMentor.industry || 'Mentor'}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <p className="mt-4 min-h-[44px] line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                                {otherMentor.headline || 'Available for focused 1:1 mentorship sessions.'}
+                              </p>
+
+                              <div className="mt-4 flex min-h-[28px] flex-wrap gap-2">
+                                {skills.length > 0 ? (
+                                  skills.map((skill) => (
+                                    <Badge key={skill} variant="secondary" className="max-w-[130px] truncate rounded-full text-[11px]">
+                                      {skill}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <Badge variant="secondary" className="rounded-full text-[11px]">
+                                    {otherMentor.industry || 'Mentorship'}
+                                  </Badge>
+                                )}
+                              </div>
+
+                              <div className="mt-5 flex items-center justify-between border-t border-border pt-4 text-sm">
+                                <div className="flex items-center gap-3 text-muted-foreground">
+                                  {otherMentor.experience ? (
+                                    <span className="inline-flex items-center gap-1">
+                                      <Briefcase className="h-3.5 w-3.5" />
+                                      {otherMentor.experience}+ yrs
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1">
+                                      <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                                      Verified
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="font-semibold text-foreground">{rateLabel}</span>
+                              </div>
+
+                              <div className="mt-4 flex items-center justify-between rounded-2xl bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition-colors group-hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:group-hover:bg-blue-950/70">
+                                View profile
+                                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+
   return (
-    <div className="min-h-screen bg-background pb-20 font-sans selection:bg-blue-100 selection:text-blue-900">
+    <div ref={pageTopRef} className="min-h-screen bg-background pb-20 font-sans selection:bg-blue-100 selection:text-blue-900">
 
       {/* 1. HERO SECTION */}
       <div className="relative">
@@ -872,6 +1293,8 @@ export function MentorDetailView({ mentorId, onBack, bookingSource = 'default' }
           </div>
         </div>
       </div>
+
+      {renderOtherAvailableMentors()}
 
       {/* Modals */}
       {mentor && (

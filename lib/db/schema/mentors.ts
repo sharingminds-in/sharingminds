@@ -18,6 +18,11 @@ export const mentorSearchModeEnum = pgEnum('mentor_search_mode', [
   'EXCLUSIVE_SEARCH',
 ]);
 
+export const mentorCreationSourceEnum = pgEnum('mentor_creation_source', [
+  'SELF_REGISTERED',
+  'ADMIN_CREATED',
+]);
+
 export const mentors = pgTable('mentors', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
@@ -63,6 +68,12 @@ export const mentors = pgTable('mentors', {
   isCouponCodeEnabled: boolean('is_coupon_code_enabled').default(false).notNull(),
   isExpert: boolean('is_expert').default(false).notNull(),
   searchMode: mentorSearchModeEnum('search_mode').default('AI_SEARCH').notNull(),
+  creationSource: mentorCreationSourceEnum('creation_source')
+    .default('SELF_REGISTERED')
+    .notNull(),
+  createdByAdminId: text('created_by_admin_id').references(() => users.id, {
+    onDelete: 'set null',
+  }),
 
   // Timestamps
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -81,3 +92,5 @@ export type Mentor = typeof mentors.$inferSelect;
 export type NewMentor = typeof mentors.$inferInsert;
 export type VerificationStatus = typeof verificationStatusEnum.enumValues[number];
 export type MentorSearchMode = typeof mentorSearchModeEnum.enumValues[number];
+export type MentorCreationSource =
+  typeof mentorCreationSourceEnum.enumValues[number];
