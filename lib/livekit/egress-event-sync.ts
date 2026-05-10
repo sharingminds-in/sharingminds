@@ -196,19 +196,11 @@ function normalizeFileInfoList(payload: unknown): NormalizedFileInfo[] {
     .filter((item): item is NormalizedFileInfo => Boolean(item));
 }
 
-function mapEgressStatus(
+export function mapEgressStatus(
   status: string | number | undefined,
   event: SupportedEgressEvent
 ): 'in_progress' | 'completed' | 'failed' {
   const normalized = normalizeStatus(status);
-
-  if (
-    normalized === 'EGRESS_COMPLETE' ||
-    normalized === 'EGRESS_COMPLETED' ||
-    event === 'egress_ended'
-  ) {
-    return 'completed';
-  }
 
   if (
     normalized === 'EGRESS_FAILED' ||
@@ -217,6 +209,14 @@ function mapEgressStatus(
     event === 'egress_failed'
   ) {
     return 'failed';
+  }
+
+  if (
+    normalized === 'EGRESS_COMPLETE' ||
+    normalized === 'EGRESS_COMPLETED' ||
+    event === 'egress_ended'
+  ) {
+    return 'completed';
   }
 
   return 'in_progress';

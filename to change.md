@@ -15,3 +15,8 @@ Status Code
 
 https://young-minds-landing-page.vercel.app/review-session/6bb60b5f-fa0b-4cb0-b6bc-8ebcd7cd76d1 - Bad UI after call 
 
+
+
+iN VIDEO CALL SHOW HOW MUCH TIME THE MEETING HAS BEEN RUNNING FOR, AND ALSO SHOW THAT MEETING IS BEING REORDED
+
+GIve disclamer for recording
