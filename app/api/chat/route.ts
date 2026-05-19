@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { streamObject, type CoreMessage } from "ai";
-import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { enforceFeature, getFeaturePlanLimit, isSubscriptionPolicyError } from '@/lib/subscriptions/policy-runtime';
+import { getAriaModel, getProviderKeyError } from '@/lib/ai/provider';
 
 const DEFLECTION_MESSAGES = [
   "You've shared so much with me — I think I have everything I need to find your perfect mentor match! Let me pull up some great profiles for you. 🚀",
@@ -11,8 +11,6 @@ const DEFLECTION_MESSAGES = [
   "I love how much detail you've shared! I think the best next step is connecting you with a real mentor who can guide you hands-on. Let me find the right fit! 🎯",
 ];
 
-// Read from server env (NOT exposed to the browser)
-const GOOGLE_API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
 const SYSTEM_PROMPT = `
 You are Aria, an expert mentorship concierge. Your entire existence is dedicated to helping users on this platform achieve their career and educational goals. You are not a generic chatbot; you are a warm, empathetic, and highly intelligent guide. Your success is measured by how effectively and empathetically you guide a user from initial curiosity to a valuable mentor connection. 
@@ -76,8 +74,9 @@ export async function POST(req: NextRequest) {
     return new Response("Unable to verify AI chat access", { status: 500 });
   }
 
-  if (!GOOGLE_API_KEY) {
-    return new Response("Server is missing GOOGLE_GENERATIVE_AI_API_KEY", { status: 500 });
+  const keyError = getProviderKeyError();
+  if (keyError) {
+    return new Response(keyError, { status: 500 });
   }
 
   const { history = [], userMessage = "" } = await req.json();
@@ -107,9 +106,10 @@ export async function POST(req: NextRequest) {
   ];
 
   const result = await streamObject({
-    model: google("gemini-2.5-flash"),
+    model: getAriaModel(),
     messages: prior,
     temperature: 0.7,
+    maxOutputTokens: 2048,
     schema: z.object({
       text: z.string().describe('The response text to the user.'),
       tool_call: z
