@@ -81,6 +81,7 @@ export function HeroSection() {
   const [currentAiMessage, setCurrentAiMessage] = useState("")
   const [isSearchingMentors, setIsSearchingMentors] = useState(false)
   const [isChatLimitReached, setIsChatLimitReached] = useState(false)
+  const [messageLimit, setMessageLimit] = useState<number | null>(null)
   const [suggestedContent, setSuggestedContent] = useState<SuggestedCourse[]>([])
   const [showContent, setShowContent] = useState(false)
 
@@ -118,6 +119,13 @@ export function HeroSection() {
     }
     setChatSessionId(sessionId);
   }, []);
+
+  useEffect(() => {
+    trpcClient.chatbot.getMessageLimit.query()
+      .then(data => { if (data?.limit != null) setMessageLimit(data.limit); })
+      .catch(() => {});
+  }, [trpcClient]);
+
 
   const saveMessageToDB = async (
     senderType: 'user' | 'ai' | 'system',
@@ -250,8 +258,14 @@ export function HeroSection() {
           contentToolCallQuery = deflectionResponse.content_tool_call.arguments?.query ?? "";
           contentToolCallDifficulty = deflectionResponse.content_tool_call.arguments?.difficulty;
         }
+        if (deflectionResponse.chatMeta?.limit != null) {
+          setMessageLimit(deflectionResponse.chatMeta.limit);
+        }
         setIsChatLimitReached(true);
       } else {
+        const chatLimitHeader = res.headers.get('X-Chat-Limit');
+        if (chatLimitHeader != null) setMessageLimit(Number(chatLimitHeader));
+
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
 
@@ -487,6 +501,15 @@ export function HeroSection() {
   const canGoNext = currentMentorIndex + 3 < dbMentors.length
   const canGoPrev = currentMentorIndex > 0
 
+  const userMessageCount = messages.filter(m => m.type === 'user').length
+  const messagesRemaining = messageLimit !== null ? messageLimit - userMessageCount : null
+  const remainingColorClass =
+    messagesRemaining !== null && messagesRemaining <= 1
+      ? 'text-orange-400'
+      : messagesRemaining !== null && messagesRemaining <= 3
+        ? 'text-yellow-400'
+        : 'text-slate-400'
+
   useEffect(() => {
     if (showMentors && mentorsSectionRef.current) {
       mentorsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -631,7 +654,14 @@ export function HeroSection() {
                     <h3 className="font-semibold text-white">AI Career Advisor</h3>
                     <p className="text-xs text-slate-400">Online • Ready to help</p>
                   </div>
-                  <div className="ml-auto">
+                  <div className="ml-auto flex items-center gap-2">
+                    {isChatExpanded && userMessageCount > 0 && !isChatLimitReached && (
+                      <span className={`text-xs font-medium ${messagesRemaining !== null ? remainingColorClass : 'text-slate-400'}`}>
+                        {messagesRemaining !== null
+                          ? `${messagesRemaining} msg${messagesRemaining !== 1 ? 's' : ''} left`
+                          : `${userMessageCount} sent`}
+                      </span>
+                    )}
                     <Badge variant="secondary" className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
                       <Zap className="w-3 h-3 mr-1" />
                       Powered by AI
@@ -776,6 +806,7 @@ export function HeroSection() {
                       <span className="text-xs text-slate-500">Press Enter ↵</span>
                     </div>
                   )}
+
                 </div>
               </div>
 

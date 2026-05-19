@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
       text: deflection,
       tool_call: { name: 'find_mentors', arguments: { query: userMessage } },
       content_tool_call: { name: 'suggest_content', arguments: { query: userMessage } },
+      chatMeta: { limit: sessionLimit, used: sessionUserMessageCount + 1 },
     });
   }
 
@@ -137,5 +138,12 @@ export async function POST(req: NextRequest) {
     }),
   });
 
-  return result.toTextStreamResponse();
+  const streamResponse = result.toTextStreamResponse();
+  if (sessionLimit !== null) {
+    const headers = new Headers(streamResponse.headers);
+    headers.set('X-Chat-Limit', String(sessionLimit));
+    headers.set('X-Chat-Used', String(sessionUserMessageCount + 1));
+    return new Response(streamResponse.body, { status: streamResponse.status, headers });
+  }
+  return streamResponse;
 }
