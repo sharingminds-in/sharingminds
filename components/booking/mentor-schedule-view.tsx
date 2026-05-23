@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
     Dialog,
     DialogContent,
+    DialogTitle,
 } from '@/components/ui/dialog';
 import {
     Calendar,
@@ -419,6 +420,9 @@ export function MentorScheduleView() {
             {/* Session Details Popup */}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogContent className="max-w-md p-0 overflow-hidden gap-0 border-0 shadow-xl">
+                    <DialogTitle className="sr-only">
+                        {selectedSession?.title ?? 'Session Details'}
+                    </DialogTitle>
                     {selectedSession && (
                         <>
                             {/* Mentee Info Header */}
