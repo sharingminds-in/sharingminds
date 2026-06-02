@@ -1,5 +1,4 @@
 # PostgreSQL Schema Bootstrap Fixes
-
 ## Purpose
 
 This document records the changes required to make this repository recreate its database schema correctly on a plain PostgreSQL instance using the checked-in migration files.
