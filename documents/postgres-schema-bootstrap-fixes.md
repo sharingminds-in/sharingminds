@@ -11,6 +11,7 @@ This work was done to support local Docker PostgreSQL first, with the same migra
 - managed PostgreSQL on Azure
 - Supabase-hosted Postgres through `DATABASE_URL`
 
+
 ## Original Problems
 
 A fresh PostgreSQL bootstrap failed for four separate reasons.
