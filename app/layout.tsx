@@ -14,7 +14,11 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "SharingMinds",
   description: "A personalized mentor and mentee connect platform.",
-  generator: 'v0.dev'
+  generator: 'v0.dev',
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+  },
 }
 
 export default function RootLayout({

@@ -26,7 +26,13 @@ const DiffField = ({ label, oldValue, newValue }: { label: string; oldValue: any
 };
 
 // Main component with sections
-export function MentorAuditView({ previousData, updatedData }: { previousData: Mentor; updatedData: Mentor }) {
+export function MentorAuditView({
+  previousData,
+  updatedData,
+}: {
+  previousData: Partial<Mentor>;
+  updatedData: Partial<Mentor>;
+}) {
   const personalFields: (keyof Mentor)[] = ['fullName', 'email', 'phone', 'city', 'state', 'country'];
   const professionalFields: (keyof Mentor)[] = ['title', 'company', 'industry', 'headline', 'about', 'experience', 'expertise', 'hourlyRate'];
   const socialFields: (keyof Mentor)[] = ['linkedinUrl', 'githubUrl', 'websiteUrl'];

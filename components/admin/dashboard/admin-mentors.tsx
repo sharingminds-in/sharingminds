@@ -116,6 +116,32 @@ const pendingStatuses: VerificationStatus[] = [
   'RESUBMITTED',
   'UPDATED_PROFILE',
 ];
+
+const EMPTY_MENTORS: Mentor[] = [];
+
+function buildMentorToggleMap(
+  mentors: Mentor[],
+  getValue: (mentor: Mentor) => boolean,
+) {
+  return mentors.reduce<Record<string, boolean>>((acc, mentor) => {
+    acc[mentor.id] = getValue(mentor);
+    return acc;
+  }, {});
+}
+
+function areToggleMapsEqual(
+  left: Record<string, boolean>,
+  right: Record<string, boolean>,
+) {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every((key) => left[key] === right[key])
+  );
+}
+
 const renderAvailabilityBadge = (availability: boolean | null) => {
   if (availability === false) {
     return (
@@ -168,7 +194,7 @@ export function AdminMentors() {
     couponEnabled: false,
   });
   const {
-    data: mentors = [],
+    data: mentors = EMPTY_MENTORS,
     isLoading,
     error,
     refetch,
@@ -177,17 +203,24 @@ export function AdminMentors() {
   const sendMentorCouponMutation = useAdminSendMentorCouponMutation();
 
   useEffect(() => {
-    setCouponToggles(
-      mentors.reduce<Record<string, boolean>>((acc, mentor) => {
-        acc[mentor.id] = Boolean(mentor.isCouponCodeEnabled);
-        return acc;
-      }, {}),
+    const nextCouponToggles = buildMentorToggleMap(
+      mentors,
+      (mentor) => Boolean(mentor.isCouponCodeEnabled),
     );
-    setExpertToggles(
-      mentors.reduce<Record<string, boolean>>((acc, mentor) => {
-        acc[mentor.id] = Boolean(mentor.isExpert);
-        return acc;
-      }, {}),
+    const nextExpertToggles = buildMentorToggleMap(
+      mentors,
+      (mentor) => Boolean(mentor.isExpert),
+    );
+
+    setCouponToggles((current) =>
+      areToggleMapsEqual(current, nextCouponToggles)
+        ? current
+        : nextCouponToggles,
+    );
+    setExpertToggles((current) =>
+      areToggleMapsEqual(current, nextExpertToggles)
+        ? current
+        : nextExpertToggles,
     );
   }, [mentors]);
 

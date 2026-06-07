@@ -35,6 +35,7 @@ import { MentorMentees } from '@/components/mentor/dashboard/mentor-mentees';
 import { Courses } from '@/components/shared/dashboard/courses';
 import { MyLearning } from '@/components/mentee/dashboard/my-learning';
 import { AdminMentors } from '@/components/admin/dashboard/admin-mentors';
+import { AdminUsers } from '@/components/admin/dashboard/admin-users';
 import { AdminMentees } from '@/components/admin/dashboard/admin-mentees';
 import { AdminOverview } from '@/components/admin/dashboard/admin-overview';
 import { AdminEnquiries } from '@/components/admin/dashboard/admin-enquiries';
@@ -293,6 +294,8 @@ export function DashboardExperience({
 
     if (isAdmin) {
       switch (activeSection) {
+        case 'users':
+          return <AdminUsers />;
         case 'mentors':
           return <AdminMentors />;
         case 'mentees':

@@ -6,6 +6,33 @@ import { uploadProfilePicture, uploadResume } from '@/lib/storage';
 import { submitMentorApplication } from '@/lib/mentor/server/service';
 
 const MAX_RESUME_SIZE = 5 * 1024 * 1024;
+const MAX_PROFILE_PICTURE_SIZE = 5 * 1024 * 1024;
+const PROFILE_PICTURE_ALLOWED_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
+
+function formatFileSize(bytes: number) {
+  return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+}
+
+function getUploadErrorMessage(error: unknown, fallback: string) {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof (error as { message?: unknown }).message === 'string'
+  ) {
+    return (error as { message: string }).message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return fallback;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,12 +86,35 @@ export async function POST(request: NextRequest) {
 
     const profilePicture = submittedFormData.get('profilePicture');
     if (profilePicture instanceof File && profilePicture.size > 0) {
+      if (profilePicture.size > MAX_PROFILE_PICTURE_SIZE) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Profile picture must be less than 5MB. Selected file is ${formatFileSize(profilePicture.size)}.`,
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!PROFILE_PICTURE_ALLOWED_TYPES.has(profilePicture.type)) {
+        return NextResponse.json(
+          { success: false, error: 'Profile picture must be a JPG, PNG, or WebP image.' },
+          { status: 400 }
+        );
+      }
+
       try {
         const uploadResult = await uploadProfilePicture(profilePicture, userId);
         profileImageUrl = uploadResult.path;
       } catch (error) {
         return NextResponse.json(
-          { success: false, error: 'Failed to upload profile picture' },
+          {
+            success: false,
+            error: `Failed to upload profile picture: ${getUploadErrorMessage(
+              error,
+              'Unknown upload error'
+            )}`,
+          },
           { status: 400 }
         );
       }

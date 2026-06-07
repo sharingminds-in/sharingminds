@@ -18,6 +18,12 @@ import {
   CheckCircle2,
   AlertTriangle,
   Loader2,
+  GraduationCap,
+  Sparkles,
+  Code,
+  Heart,
+  Brain,
+  Calendar,
 } from "lucide-react"
 
 import { ProfileHeader } from "@/components/shared/profile/profile-header"

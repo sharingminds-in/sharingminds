@@ -107,6 +107,11 @@ export function BookingModal({
     { id: 'details', label: 'Details' },
     { id: 'confirmation', label: 'Confirm' }
   ];
+  const STEP_TITLES: Record<Exclude<BookingStep, 'success'>, string> = {
+    'time-selection': 'Select a Date & Time',
+    details: 'Session Details',
+    confirmation: 'Review & Confirm',
+  };
 
   const resetState = () => {
     // Small timeout to allow modal close animation to start before resetting state
@@ -269,7 +274,7 @@ export function BookingModal({
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleAttemptClose()}>
         <DialogContent
           // Added [&>button]:hidden to hide the default shadcn close button
-          className="max-w-5xl h-[90vh] md:h-[85vh] flex flex-col p-0 overflow-hidden border-0 shadow-large rounded-2xl [&>button]:hidden"
+          className="h-[min(760px,calc(100svh-1rem))] w-[calc(100vw-1rem)] max-w-6xl overflow-hidden rounded-2xl border-0 p-0 shadow-large md:h-[min(760px,calc(100vh-2rem))] [&>button]:hidden"
           onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogHeader className="sr-only">
@@ -281,12 +286,12 @@ export function BookingModal({
           <div className="flex h-full">
 
             {/* LEFT SIDEBAR: Mentor Context */}
-            <div className="w-80 hidden lg:flex flex-col bg-secondary dark:bg-card border-r border-border h-full">
-              <div className="p-8 flex flex-col h-full">
+            <div className="hidden h-full w-72 flex-col border-r border-border bg-secondary dark:bg-card lg:flex">
+              <div className="flex h-full flex-col p-6">
 
                 {/* Avatar & Basic Info */}
-                <div className="text-center mb-6">
-                  <div className="relative mx-auto w-24 h-24 mb-4">
+                <div className="mb-5 text-center">
+                  <div className="relative mx-auto mb-3 h-20 w-20">
                     <Avatar className="w-full h-full border-4 border-background shadow-md">
                       <AvatarImage src={mentor.profileImageUrl} />
                       <AvatarFallback className="text-2xl bg-indigo-500 text-white">
@@ -299,7 +304,7 @@ export function BookingModal({
                       <span className="text-xs font-bold text-foreground">5.0</span>
                     </div>
                   </div>
-                  <h3 className="font-bold text-lg text-foreground leading-tight">
+                  <h3 className="text-lg font-bold leading-tight text-foreground">
                     {mentor.fullName}
                   </h3>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -307,10 +312,10 @@ export function BookingModal({
                   </p>
                 </div>
 
-                <Separator className="mb-6 bg-border" />
+                <Separator className="mb-5 bg-border" />
 
                 {/* Hourly Rate */}
-                <div className="bg-card p-4 rounded-xl border border-border mb-6 shadow-subtle">
+                <div className="mb-5 rounded-xl border border-border bg-card p-4 shadow-subtle">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Session Rate</p>
                   <div className="flex items-end gap-1">
                     <span className="text-2xl font-bold text-foreground">{formatCurrency(mentor.hourlyRate, mentor.currency)}</span>
@@ -332,14 +337,14 @@ export function BookingModal({
                   </div>
                 )}
 
-                <div className="mt-auto pt-6 text-xs text-center text-muted-foreground">
+                <div className="mt-auto pt-5 text-center text-xs text-muted-foreground">
                   Powered by <span className="font-semibold text-foreground">SharingMinds</span>
                 </div>
               </div>
             </div>
 
             {/* RIGHT CONTENT: Wizard Steps */}
-            <div className="flex-1 flex flex-col min-w-0 bg-background relative">
+            <div className="relative flex min-w-0 flex-1 flex-col bg-background">
 
               {/* Custom Close Button */}
               <button
@@ -352,8 +357,8 @@ export function BookingModal({
 
               {/* Step Indicator */}
               {currentStep !== 'success' && (
-                <div className="px-8 pt-8 pb-4">
-                  <div className="flex items-center justify-between max-w-md mx-auto relative">
+                <div className="px-6 pb-2 pt-5">
+                  <div className="relative mx-auto flex max-w-sm items-center justify-between">
                     {/* Background Line */}
                     <div className="absolute top-1/2 left-0 w-full h-0.5 bg-muted -z-10" />
 
@@ -384,8 +389,16 @@ export function BookingModal({
                 </div>
               )}
 
+              {currentStep !== 'success' && (
+                <div className="px-5 pb-3 text-center">
+                  <h2 className="text-xl font-bold text-foreground">
+                    {STEP_TITLES[currentStep]}
+                  </h2>
+                </div>
+              )}
+
               {/* Step Content Area */}
-              <div className="flex-1 overflow-hidden relative">
+              <div className="relative min-h-0 flex-1 overflow-hidden">
                 <AnimatePresence mode="wait" initial={false}>
 
                   {currentStep === 'time-selection' && (
@@ -397,8 +410,7 @@ export function BookingModal({
                       transition={{ duration: 0.2 }}
                       className="h-full"
                     >
-                      <div className="h-full px-4 md:px-8 py-4 overflow-y-auto">
-                        <h2 className="text-2xl font-bold text-foreground text-center mb-6">Select a Date & Time</h2>
+                      <div className="h-full px-5 pb-5 pt-1">
                         <TimeSlotSelectorV2
                           mentorId={mentor.userId}
                           onTimeSelected={handleTimeSelection}
@@ -417,23 +429,23 @@ export function BookingModal({
                       transition={{ duration: 0.2 }}
                       className="h-full"
                     >
-                  <BookingForm
-                    scheduledAt={bookingData.scheduledAt}
-                    mentor={mentor}
-                    availability={availabilityLoading ? undefined : effectiveAvailability || undefined}
-                    freeDisabledReason={
-                      allowFreeBooking
+                      <BookingForm
+                        scheduledAt={bookingData.scheduledAt}
+                        mentor={mentor}
+                        availability={availabilityLoading ? undefined : effectiveAvailability || undefined}
+                        freeDisabledReason={
+                          allowFreeBooking
                             ? undefined
                             : 'Free sessions are only available via AI mentor matches.'
                         }
                         hideFreeOption={!allowFreeBooking}
-                    hideSessionTypeSelector={!allowFreeBooking}
-                    onSubmit={handleBookingDetails}
-                    onBack={handleBackStep}
-                    initialData={bookingData}
-                    bookingSource={bookingSource}
-                    aiSpecialRate={aiSpecialRate}
-                  />
+                        hideSessionTypeSelector={!allowFreeBooking}
+                        onSubmit={handleBookingDetails}
+                        onBack={handleBackStep}
+                        initialData={bookingData}
+                        bookingSource={bookingSource}
+                        aiSpecialRate={aiSpecialRate}
+                      />
                     </motion.div>
                   )}
 
@@ -444,17 +456,17 @@ export function BookingModal({
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
                       transition={{ duration: 0.2 }}
-                      className="h-full overflow-y-auto p-8"
+                      className="h-full"
                     >
-                    <BookingConfirmation
-                      bookingData={bookingData as BookingData}
-                      mentor={mentor}
-                      onConfirm={handleConfirmBooking}
-                      onBack={handleBackStep}
-                      isSubmitting={isSubmitting}
-                      bookingSource={bookingSource}
-                      aiSpecialRate={aiSpecialRate}
-                    />
+                      <BookingConfirmation
+                        bookingData={bookingData as BookingData}
+                        mentor={mentor}
+                        onConfirm={handleConfirmBooking}
+                        onBack={handleBackStep}
+                        isSubmitting={isSubmitting}
+                        bookingSource={bookingSource}
+                        aiSpecialRate={aiSpecialRate}
+                      />
                     </motion.div>
                   )}
 

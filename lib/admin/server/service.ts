@@ -1,18 +1,26 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 
 import type { TRPCContext } from '@/lib/trpc/context';
+import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import {
   contactSubmissions,
   mentors,
   mentorsProfileAudit,
   mentees,
+  roles,
   sessionPolicies,
+  userRoles,
   users,
   type NotificationType,
 } from '@/lib/db/schema';
 import { getUserWithRoles } from '@/lib/db/user-helpers';
-import { resolveStorageUrl } from '@/lib/storage';
+import {
+  deleteStorageValues,
+  resolveStorageUrl,
+  uploadProfilePicture,
+  uploadResume,
+} from '@/lib/storage';
 import {
   sendMentorApplicationApprovedEmail,
   sendMentorApplicationRejectedEmail,
@@ -25,6 +33,11 @@ import {
   logAdminSessionAction,
 } from '@/lib/db/admin-session-audit';
 import {
+  buildAdminCreatedMentorProfileValues,
+  splitAdminCreatedMentorName,
+  splitAdminCreatedUserName,
+} from '@/lib/admin/user-provisioning';
+import {
   buildMentorAdminUpdatePlan,
   generateAdminMentorCouponCode,
 } from '@/lib/admin/mentor-actions';
@@ -36,11 +49,17 @@ import {
   groupAdminPolicies,
 } from '@/lib/admin/policies';
 import {
+  adminCreateMentorUserInputSchema,
+  adminCreateAdminUserInputSchema,
   adminGetMentorAuditInputSchema,
+  adminPromoteAdminUserInputSchema,
   adminSendMentorCouponInputSchema,
   adminUpdateEnquiryInputSchema,
   adminUpdateMentorInputSchema,
   adminUpdatePoliciesInputSchema,
+  type AdminCreateMentorUserInput,
+  type AdminCreateAdminUserInput,
+  type AdminPromoteAdminUserInput,
   type AdminSendMentorCouponInput,
   type AdminUpdateEnquiryInput,
   type AdminUpdateMentorInput,
@@ -110,6 +129,27 @@ const menteeSelectFields = {
   updatedAt: mentees.updatedAt,
 };
 
+const adminUserSelectFields = {
+  id: users.id,
+  email: users.email,
+  emailVerified: users.emailVerified,
+  name: users.name,
+  firstName: users.firstName,
+  lastName: users.lastName,
+  phone: users.phone,
+  isActive: users.isActive,
+  isBlocked: users.isBlocked,
+  createdAt: users.createdAt,
+  updatedAt: users.updatedAt,
+  roleName: roles.name,
+  roleDisplayName: roles.displayName,
+  adminLevel: userRoles.adminLevel,
+  mentorId: mentors.id,
+  mentorVerificationStatus: mentors.verificationStatus,
+  mentorCreationSource: mentors.creationSource,
+  mentorCreatedByAdminId: mentors.createdByAdminId,
+};
+
 function getAdminDb(context?: Pick<TRPCContext, 'db'>) {
   return context?.db ?? db;
 }
@@ -124,6 +164,18 @@ async function getAdminActor(context: AdminServiceContext): Promise<CurrentUser>
   assertAdminService(isAdmin, 403, 'Admin access required');
 
   return resolvedUser;
+}
+
+function getAdminActorLevel(actor: CurrentUser) {
+  return actor.roles.find((role) => role.name === 'admin')?.adminLevel ?? null;
+}
+
+function assertSuperAdminActor(actor: CurrentUser) {
+  assertAdminService(
+    getAdminActorLevel(actor) === 'super',
+    403,
+    'Super admin access required'
+  );
 }
 
 function parseJsonList(value: string | null | undefined): string[] {
@@ -289,6 +341,401 @@ export async function listAdminMentors(context: AdminServiceContext) {
   await getAdminActor(context);
   const rows = await fetchMentorRows(context);
   return Promise.all(rows.map((row) => formatMentorRecord(row)));
+}
+
+export async function listAdminUsers(context: AdminServiceContext) {
+  await getAdminActor(context);
+  const database = getAdminDb(context);
+  const rows = await database
+    .select(adminUserSelectFields)
+    .from(users)
+    .leftJoin(userRoles, eq(users.id, userRoles.userId))
+    .leftJoin(roles, eq(userRoles.roleId, roles.id))
+    .leftJoin(mentors, eq(users.id, mentors.userId))
+    .orderBy(desc(users.createdAt));
+
+  const usersById = new Map<
+    string,
+    {
+      id: string;
+      email: string;
+      emailVerified: boolean | null;
+      name: string | null;
+      firstName: string | null;
+      lastName: string | null;
+      phone: string | null;
+      isActive: boolean | null;
+      isBlocked: boolean | null;
+      createdAt: string | null;
+      updatedAt: string | null;
+      roles: Array<{
+        name: string;
+        displayName: string | null;
+        adminLevel: 'normal' | 'super' | null;
+      }>;
+      mentor: {
+        id: string;
+        verificationStatus: typeof mentors.verificationStatus.enumValues[number];
+        creationSource: typeof mentors.creationSource.enumValues[number];
+        createdByAdminId: string | null;
+      } | null;
+    }
+  >();
+
+  for (const row of rows) {
+    const existing = usersById.get(row.id);
+    const role =
+      row.roleName && row.roleDisplayName
+        ? {
+            name: row.roleName,
+            displayName: row.roleDisplayName,
+            adminLevel:
+              row.roleName === 'admin' ? row.adminLevel ?? 'normal' : null,
+          }
+        : null;
+    const mentor =
+      row.mentorId &&
+      row.mentorVerificationStatus &&
+      row.mentorCreationSource
+        ? {
+            id: row.mentorId,
+            verificationStatus: row.mentorVerificationStatus,
+            creationSource: row.mentorCreationSource,
+            createdByAdminId: row.mentorCreatedByAdminId,
+          }
+        : null;
+
+    if (existing) {
+      if (
+        role &&
+        !existing.roles.some((existingRole) => existingRole.name === role.name)
+      ) {
+        existing.roles.push(role);
+      }
+      continue;
+    }
+
+    usersById.set(row.id, {
+      id: row.id,
+      email: row.email,
+      emailVerified: row.emailVerified,
+      name: row.name,
+      firstName: row.firstName,
+      lastName: row.lastName,
+      phone: row.phone,
+      isActive: row.isActive,
+      isBlocked: row.isBlocked,
+      createdAt: row.createdAt ? row.createdAt.toISOString() : null,
+      updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
+      roles: role ? [role] : [],
+      mentor,
+    });
+  }
+
+  return Array.from(usersById.values());
+}
+
+export async function createAdminUser(
+  context: AdminServiceContext,
+  input: AdminCreateAdminUserInput
+) {
+  const actor = await getAdminActor(context);
+  const parsed = adminCreateAdminUserInputSchema.parse(input);
+  const database = getAdminDb(context);
+
+  const [existingUser] = await database
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, parsed.email))
+    .limit(1);
+
+  assertAdminService(!existingUser, 409, 'A user with this email already exists');
+
+  let createdUserId: string | null = null;
+
+  try {
+    const signUpResult = await auth.api.signUpEmail({
+      body: {
+        name: parsed.fullName,
+        email: parsed.email,
+        password: parsed.initialPassword,
+      },
+    });
+    createdUserId = signUpResult.user.id;
+
+    const { firstName, lastName } = splitAdminCreatedUserName(parsed.fullName);
+
+    await database.transaction(async (transaction) => {
+      const [adminRole] = await transaction
+        .select({ id: roles.id })
+        .from(roles)
+        .where(eq(roles.name, 'admin'))
+        .limit(1);
+
+      assertAdminService(adminRole, 500, 'Admin role is not configured');
+
+      await transaction
+        .update(users)
+        .set({
+          emailVerified: true,
+          firstName,
+          lastName,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, createdUserId!));
+
+      await transaction
+        .insert(userRoles)
+        .values({
+          userId: createdUserId!,
+          roleId: adminRole.id,
+          assignedBy: actor.id,
+          adminLevel: parsed.adminLevel,
+        })
+        .onConflictDoNothing();
+    });
+
+    await logAdminAction({
+      adminId: actor.id,
+      action: 'ADMIN_USER_CREATED',
+      targetId: createdUserId,
+      targetType: 'admin',
+      details: {
+        email: parsed.email,
+        adminLevel: parsed.adminLevel,
+      },
+    });
+
+    return {
+      userId: createdUserId,
+      users: await listAdminUsers(context),
+    };
+  } catch (error) {
+    if (createdUserId) {
+      await database.delete(users).where(eq(users.id, createdUserId));
+    }
+
+    if (error instanceof AdminServiceError) {
+      throw error;
+    }
+
+    throw new AdminServiceError(
+      500,
+      error instanceof Error ? error.message : 'Failed to create admin user'
+    );
+  }
+}
+
+export async function promoteAdminUserToSuper(
+  context: AdminServiceContext,
+  input: AdminPromoteAdminUserInput
+) {
+  const actor = await getAdminActor(context);
+  assertSuperAdminActor(actor);
+
+  const parsed = adminPromoteAdminUserInputSchema.parse(input);
+  const database = getAdminDb(context);
+
+  const [targetAdminRole] = await database
+    .select({
+      userId: userRoles.userId,
+      roleId: userRoles.roleId,
+      adminLevel: userRoles.adminLevel,
+      email: users.email,
+      name: users.name,
+    })
+    .from(userRoles)
+    .innerJoin(roles, eq(userRoles.roleId, roles.id))
+    .innerJoin(users, eq(userRoles.userId, users.id))
+    .where(and(eq(userRoles.userId, parsed.userId), eq(roles.name, 'admin')))
+    .limit(1);
+
+  assertAdminService(targetAdminRole, 404, 'Admin user not found');
+  assertAdminService(
+    targetAdminRole.adminLevel !== 'super',
+    400,
+    'Admin user is already a super admin'
+  );
+
+  await database
+    .update(userRoles)
+    .set({
+      adminLevel: 'super',
+    })
+    .where(
+      and(
+        eq(userRoles.userId, targetAdminRole.userId),
+        eq(userRoles.roleId, targetAdminRole.roleId)
+      )
+    );
+
+  await logAdminAction({
+    adminId: actor.id,
+    action: 'ADMIN_USER_PROMOTED_TO_SUPER',
+    targetId: targetAdminRole.userId,
+    targetType: 'admin',
+    details: {
+      email: targetAdminRole.email,
+      previousAdminLevel: targetAdminRole.adminLevel ?? 'normal',
+      adminLevel: 'super',
+    },
+  });
+
+  return {
+    userId: targetAdminRole.userId,
+    previousAdminLevel: targetAdminRole.adminLevel ?? 'normal',
+    adminLevel: 'super' as const,
+    users: await listAdminUsers(context),
+  };
+}
+
+export async function createAdminMentorUser(
+  context: AdminServiceContext,
+  input: AdminCreateMentorUserInput,
+  files?: {
+    profilePicture?: File | null;
+    resume?: File | null;
+  }
+) {
+  const actor = await getAdminActor(context);
+  const parsed = adminCreateMentorUserInputSchema.parse(input);
+  const database = getAdminDb(context);
+
+  const [existingUser] = await database
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, parsed.email))
+    .limit(1);
+
+  assertAdminService(!existingUser, 409, 'A user with this email already exists');
+
+  let createdUserId: string | null = null;
+  const uploadedStorageValues: string[] = [];
+
+  try {
+    const signUpResult = await auth.api.signUpEmail({
+      body: {
+        name: parsed.fullName,
+        email: parsed.email,
+        password: parsed.initialPassword,
+      },
+    });
+    createdUserId = signUpResult.user.id;
+
+    let profileImageUrl = parsed.profileImageUrl ?? null;
+    let resumeUrl = parsed.resumeUrl ?? null;
+
+    if (files?.profilePicture instanceof File && files.profilePicture.size > 0) {
+      const uploadResult = await uploadProfilePicture(
+        files.profilePicture,
+        createdUserId
+      );
+      profileImageUrl = uploadResult.path;
+      uploadedStorageValues.push(uploadResult.path);
+    }
+
+    assertAdminService(
+      profileImageUrl,
+      400,
+      'Profile picture is required'
+    );
+
+    if (files?.resume instanceof File && files.resume.size > 0) {
+      const uploadResult = await uploadResume(files.resume, createdUserId);
+      resumeUrl = uploadResult.path;
+      uploadedStorageValues.push(uploadResult.path);
+    }
+
+    const { firstName, lastName } = splitAdminCreatedMentorName(
+      parsed.fullName
+    );
+
+    await database.transaction(async (transaction) => {
+      const [mentorRole] = await transaction
+        .select({ id: roles.id })
+        .from(roles)
+        .where(eq(roles.name, 'mentor'))
+        .limit(1);
+
+      assertAdminService(mentorRole, 500, 'Mentor role is not configured');
+
+      await transaction
+        .update(users)
+        .set({
+          emailVerified: true,
+          firstName,
+          lastName,
+          phone: parsed.phone,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, createdUserId!));
+
+      await transaction
+        .insert(userRoles)
+        .values({
+          userId: createdUserId!,
+          roleId: mentorRole.id,
+          assignedBy: actor.id,
+        })
+        .onConflictDoNothing();
+
+      await transaction.insert(mentors).values(
+        buildAdminCreatedMentorProfileValues({
+          userId: createdUserId!,
+          adminId: actor.id,
+          input: {
+            fullName: parsed.fullName,
+            email: parsed.email,
+            phone: parsed.phone,
+            title: parsed.title,
+            company: parsed.company,
+            industry: parsed.industry,
+            expertise: parsed.expertise,
+            experience: parsed.experience,
+            about: parsed.about,
+            linkedinUrl: parsed.linkedinUrl,
+            country: parsed.country,
+            state: parsed.state,
+            city: parsed.city,
+            availability: parsed.availability,
+            profileImageUrl,
+            resumeUrl: resumeUrl ?? undefined,
+          },
+        })
+      );
+    });
+
+    await logAdminAction({
+      adminId: actor.id,
+      action: 'MENTOR_USER_CREATED',
+      targetId: createdUserId,
+      targetType: 'mentor',
+      details: {
+        email: parsed.email,
+        creationSource: 'ADMIN_CREATED',
+      },
+    });
+
+    return {
+      userId: createdUserId,
+      users: await listAdminUsers(context),
+    };
+  } catch (error) {
+    await deleteStorageValues(uploadedStorageValues);
+
+    if (createdUserId) {
+      await database.delete(users).where(eq(users.id, createdUserId));
+    }
+
+    if (error instanceof AdminServiceError) {
+      throw error;
+    }
+
+    throw new AdminServiceError(
+      500,
+      error instanceof Error ? error.message : 'Failed to create mentor user'
+    );
+  }
 }
 
 export async function updateAdminMentor(

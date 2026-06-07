@@ -11,7 +11,7 @@ import {
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/auth-context";
-import { LayoutDashboard, Users, GraduationCap, Settings, BarChart3, Inbox, CreditCard, CalendarClock, BookOpen, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Users, GraduationCap, Settings, BarChart3, Inbox, CreditCard, CalendarClock, BookOpen, MessageSquare, UserCog } from "lucide-react";
 import { getNavigationSections, type DashboardNavigationScope } from "@/lib/dashboard/sections";
 
 interface AdminSidebarProps {
@@ -33,6 +33,7 @@ export function AdminSidebar({
 
   const items = [
     { key: "dashboard", title: "Overview", icon: LayoutDashboard },
+    { key: "users", title: "Users", icon: UserCog },
     { key: "mentors", title: "Mentors", icon: GraduationCap },
     { key: "mentees", title: "Mentees", icon: Users },
     { key: "messages", title: "Messages", icon: MessageSquare },

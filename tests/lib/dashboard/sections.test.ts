@@ -57,6 +57,11 @@ describe('dashboard section registry', () => {
     expect(menteeDashboardSections.map((section) => section.key)).not.toContain(
       'home'
     );
+
+    const adminDashboardSections = getNavigationSections('admin', 'dashboard');
+    expect(adminDashboardSections.map((section) => section.key)).toContain(
+      'users'
+    );
   });
 
   it('builds standardized dashboard section urls from one helper', () => {

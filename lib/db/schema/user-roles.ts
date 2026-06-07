@@ -6,6 +6,7 @@ import { roles } from './roles';
 export const userRoles = pgTable('user_roles', {
   userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   roleId: uuid('role_id').references(() => roles.id, { onDelete: 'cascade' }).notNull(),
+  adminLevel: text('admin_level').$type<'normal' | 'super'>(),
   
   // Timestamps
   assignedAt: timestamp('assigned_at').defaultNow().notNull(),

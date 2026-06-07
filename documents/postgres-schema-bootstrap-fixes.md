@@ -1,5 +1,4 @@
 # PostgreSQL Schema Bootstrap Fixes
-
 ## Purpose
 
 This document records the changes required to make this repository recreate its database schema correctly on a plain PostgreSQL instance using the checked-in migration files.
@@ -10,6 +9,7 @@ This work was done to support local Docker PostgreSQL first, with the same migra
 - managed PostgreSQL on GCP
 - managed PostgreSQL on Azure
 - Supabase-hosted Postgres through `DATABASE_URL`
+
 
 ## Original Problems
 

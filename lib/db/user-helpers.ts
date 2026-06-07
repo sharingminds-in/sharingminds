@@ -22,6 +22,7 @@ export async function getUserWithRoles(userId: string) {
       isBlocked: users.isBlocked,
       roleName: roles.name,
       roleDisplayName: roles.displayName,
+      adminLevel: userRoles.adminLevel,
     })
     .from(users)
     .leftJoin(userRoles, eq(users.id, userRoles.userId))
@@ -36,6 +37,7 @@ export async function getUserWithRoles(userId: string) {
     .map(row => ({
       name: row.roleName,
       displayName: row.roleDisplayName,
+      adminLevel: row.roleName === 'admin' ? row.adminLevel : null,
     }));
 
   return {

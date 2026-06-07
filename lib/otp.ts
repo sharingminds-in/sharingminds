@@ -11,18 +11,73 @@ export function normalizeVerificationEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+function getGmailCredentials() {
+  const user = process.env.GMAIL_APP_USER?.trim();
+  const pass = process.env.GMAIL_APP_PASSWORD?.trim();
+
+  if (!user || !pass) {
+    return null;
+  }
+
+  return { user, pass };
+}
+
+function isConsoleOtpFallbackEnabled() {
+  return (
+    process.env.NODE_ENV !== 'production' &&
+    process.env.OTP_DEV_CONSOLE_FALLBACK === 'true'
+  );
+}
+
 export async function sendVerificationOtp(email: string) {
   try {
     const normalizedEmail = normalizeVerificationEmail(email);
-    const otp = randomInt(100000, 999999);
+    const otp = randomInt(100000, 1000000);
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 10 * 60 * 1000); // 10 mins from now
+    const credentials = getGmailCredentials();
 
     const existingVerification = await db
       .select({ email: emailVerifications.email })
       .from(emailVerifications)
       .where(eq(emailVerifications.email, normalizedEmail))
       .limit(1);
+
+    if (!credentials && !isConsoleOtpFallbackEnabled()) {
+      return {
+        success: false,
+        error: 'Email delivery is not configured. Set GMAIL_APP_USER and GMAIL_APP_PASSWORD in .env.local, then restart the server.',
+      };
+    }
+
+    if (!credentials) {
+      await db
+        .insert(emailVerifications)
+        .values({ email: normalizedEmail, code: otp, expiresAt })
+        .onConflictDoUpdate({
+          target: emailVerifications.email,
+          set: { code: otp, expiresAt, createdAt: new Date() },
+        });
+
+      console.warn(
+        `[auth:otp] OTP_DEV_CONSOLE_FALLBACK is enabled. OTP for ${normalizedEmail}: ${otp}`
+      );
+
+      return {
+        success: true,
+        message: 'OTP generated in local fallback mode. Check the server console for the code.',
+      };
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: credentials.user,
+        pass: credentials.pass,
+      },
+    });
+
+    await transporter.verify();
 
     await db
       .insert(emailVerifications)
@@ -31,14 +86,6 @@ export async function sendVerificationOtp(email: string) {
         target: emailVerifications.email,
         set: { code: otp, expiresAt, createdAt: new Date() },
       });
-
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.GMAIL_APP_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-    });
 
     try {
       const action = existingVerification.length > 0
@@ -57,7 +104,7 @@ export async function sendVerificationOtp(email: string) {
     }
 
     await transporter.sendMail({
-      from: `"SharingMinds" <${process.env.GMAIL_APP_USER}>`,
+      from: `"SharingMinds" <${credentials.user}>`,
       to: normalizedEmail,
       subject: 'Your Verification Code',
       html: `
@@ -75,7 +122,12 @@ export async function sendVerificationOtp(email: string) {
     return { success: true, message: 'OTP sent successfully' };
   } catch (err: any) {
     console.error("Error sending OTP:", err);
-    return { success: false, error: 'Failed to send OTP' };
+    return {
+      success: false,
+      error: err?.code === 'EAUTH'
+        ? 'Email provider authentication failed. Check GMAIL_APP_USER and GMAIL_APP_PASSWORD.'
+        : 'Failed to send OTP',
+    };
   }
 }
 
