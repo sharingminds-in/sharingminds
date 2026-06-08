@@ -5,11 +5,13 @@ import {
   saveChatbotMessage,
 } from '@/lib/chatbot/server/message-service';
 import { MENTEE_FEATURE_KEYS } from '@/lib/mentee/access-policy';
+import { getFeaturePlanLimit } from '@/lib/subscriptions/policy-runtime';
 import { throwAsTRPCError } from '@/lib/trpc/router-error';
 
 import {
   createTRPCRouter,
   menteeFeatureProcedure,
+  protectedProcedure,
   publicProcedure,
 } from '../init';
 
@@ -27,6 +29,17 @@ export const chatbotRouter = createTRPCRouter({
         throwAsTRPCError(error, 'Failed to fetch messages');
       }
     }),
+  getMessageLimit: protectedProcedure.query(async ({ ctx }) => {
+    try {
+      const limit = await getFeaturePlanLimit({
+        action: 'ai.chat.max_user_messages',
+        userId: ctx.userId,
+      });
+      return { limit };
+    } catch (error) {
+      throwAsTRPCError(error, 'Failed to fetch message limit');
+    }
+  }),
   saveMessage: publicProcedure
     .input(
       z.object({
