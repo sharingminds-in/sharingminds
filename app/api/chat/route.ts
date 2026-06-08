@@ -4,6 +4,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { enforceFeature, getFeaturePlanLimit, isSubscriptionPolicyError } from '@/lib/subscriptions/policy-runtime';
 import { getAriaModel, getProviderKeyError } from '@/lib/ai/provider';
+import { filterUserMessage } from '@/lib/ai/content-filter';
 
 const DEFLECTION_MESSAGES = [
   "You've shared so much with me — I think I have everything I need to find your perfect mentor match! Let me pull up some great profiles for you. 🚀",
@@ -86,6 +87,11 @@ export async function POST(req: NextRequest) {
     userId: session.user.id,
   });
   const sessionUserMessageCount = history.filter((m: any) => m.type === 'user').length;
+
+  const filter = await filterUserMessage(userMessage);
+  if (!filter.relevant) {
+    return NextResponse.json({ text: filter.reply, filtered: true });
+  }
 
   if (sessionLimit !== null && sessionUserMessageCount >= sessionLimit) {
     const deflection = DEFLECTION_MESSAGES[Math.floor(Math.random() * DEFLECTION_MESSAGES.length)];

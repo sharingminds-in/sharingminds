@@ -261,7 +261,9 @@ export function HeroSection() {
         if (deflectionResponse.chatMeta?.limit != null) {
           setMessageLimit(deflectionResponse.chatMeta.limit);
         }
-        setIsChatLimitReached(true);
+        if (!deflectionResponse.filtered) {
+          setIsChatLimitReached(true);
+        }
       } else {
         const chatLimitHeader = res.headers.get('X-Chat-Limit');
         if (chatLimitHeader != null) setMessageLimit(Number(chatLimitHeader));
