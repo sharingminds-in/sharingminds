@@ -158,7 +158,10 @@ export async function listPublicMentors(
       industry: mentors.industry,
       expertise: mentors.expertise,
       experience: mentors.experience,
-      hourlyRate: mentors.hourlyRate,
+      hourlyRate: sql<string | null>`COALESCE(
+        ${mentors.adminHourlyRateOverride},
+        ${mentors.hourlyRate}
+      )`,
       currency: mentors.currency,
       headline: mentors.headline,
       about: mentors.about,

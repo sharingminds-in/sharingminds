@@ -12,6 +12,11 @@ export type AdminPolicyRecord = RouterOutputs['admin']['getPolicies']['policies'
 export type GroupedAdminPolicies = RouterOutputs['admin']['getPolicies']['grouped'];
 export type AdminMentorAudit = RouterOutputs['admin']['getMentorAudit'];
 export type AdminUpdateMentorInput = RouterInputs['admin']['updateMentor'];
+export interface AdminUpdateMentorPricingInput {
+  mentorId: string;
+  adminHourlyRateOverride: number | null;
+  reason?: string | null;
+}
 export type AdminCreateMentorUserInput =
   RouterInputs['admin']['createMentorUser'];
 export type AdminCreateAdminUserInput =
@@ -150,6 +155,19 @@ export function useAdminUpdateMentorMutation() {
   return useMutation({
     mutationFn: (input: AdminUpdateMentorInput) =>
       trpcClient.admin.updateMentor.mutate(input),
+    onSuccess: async (_result, variables) => {
+      await invalidateAdminQueries(queryClient, variables.mentorId);
+    },
+  });
+}
+
+export function useAdminUpdateMentorPricingMutation() {
+  const trpcClient = useTRPCClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: AdminUpdateMentorPricingInput) =>
+      trpcClient.admin.updateMentorPricing.mutate(input),
     onSuccess: async (_result, variables) => {
       await invalidateAdminQueries(queryClient, variables.mentorId);
     },

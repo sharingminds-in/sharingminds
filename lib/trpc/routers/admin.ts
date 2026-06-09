@@ -24,6 +24,7 @@ import {
   sendAdminMentorCoupon,
   updateAdminEnquiry,
   updateAdminMentor,
+  updateAdminMentorPricing,
   updateAdminPolicies,
 } from '@/lib/admin/server/service';
 import {
@@ -34,6 +35,7 @@ import {
   adminSendMentorCouponInputSchema,
   adminUpdateEnquiryInputSchema,
   adminUpdateMentorInputSchema,
+  adminUpdateMentorPricingInputSchema,
   adminUpdatePoliciesInputSchema,
 } from '@/lib/admin/server/schemas';
 import { throwAsTRPCError } from '@/lib/trpc/router-error';
@@ -94,6 +96,15 @@ export const adminRouter = createTRPCRouter({
         return await updateAdminMentor(ctx as never, input);
       } catch (error) {
         throwAsTRPCError(error, 'Failed to update mentor');
+      }
+    }),
+  updateMentorPricing: adminProcedure
+    .input(adminUpdateMentorPricingInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await updateAdminMentorPricing(ctx as never, input);
+      } catch (error) {
+        throwAsTRPCError(error, 'Failed to update mentor pricing');
       }
     }),
   sendMentorCoupon: adminProcedure

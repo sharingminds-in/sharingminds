@@ -36,6 +36,15 @@ export const mentors = pgTable('mentors', {
 
   // Mentoring details
   hourlyRate: decimal('hourly_rate', { precision: 10, scale: 2 }),
+  adminHourlyRateOverride: decimal('admin_hourly_rate_override', {
+    precision: 10,
+    scale: 2,
+  }),
+  rateOverrideReason: text('rate_override_reason'),
+  rateOverriddenAt: timestamp('rate_overridden_at'),
+  rateOverriddenBy: text('rate_overridden_by').references(() => users.id, {
+    onDelete: 'set null',
+  }),
   currency: text('currency').default('USD'),
   availability: text('availability'), // JSON for availability schedule
   maxMentees: integer('max_mentees').default(10),

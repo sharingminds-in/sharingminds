@@ -6,6 +6,7 @@ import {
   eq,
   ilike,
   or,
+  sql,
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
@@ -241,7 +242,10 @@ export async function listMentors(
         industry: mentors.industry,
         expertise: mentors.expertise,
         experience: mentors.experience,
-        hourlyRate: mentors.hourlyRate,
+        hourlyRate: sql<string | null>`COALESCE(
+          ${mentors.adminHourlyRateOverride},
+          ${mentors.hourlyRate}
+        )`,
         currency: mentors.currency,
         headline: mentors.headline,
         about: mentors.about,
@@ -305,7 +309,10 @@ export async function getMentorDetail(
       industry: mentors.industry,
       expertise: mentors.expertise,
       experience: mentors.experience,
-      hourlyRate: mentors.hourlyRate,
+      hourlyRate: sql<string | null>`COALESCE(
+        ${mentors.adminHourlyRateOverride},
+        ${mentors.hourlyRate}
+      )`,
       currency: mentors.currency,
       availability: mentors.availability,
       maxMentees: mentors.maxMentees,

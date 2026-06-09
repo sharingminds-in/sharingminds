@@ -53,6 +53,7 @@ interface BookingConfirmationProps {
   isSubmitting: boolean;
   bookingSource?: 'ai' | 'explore' | 'default';
   aiSpecialRate?: number | null;
+  aiSpecialCurrency?: string | null;
 }
 
 const MEETING_TYPE_ICONS = {
@@ -81,19 +82,30 @@ export function BookingConfirmation({
   isSubmitting,
   bookingSource = 'default',
   aiSpecialRate = null,
+  aiSpecialCurrency = null,
 }: BookingConfirmationProps) {
   const [showPolicy, setShowPolicy] = useState(false);
   const mentorHourlyRateValue = mentor.hourlyRate ? Number(mentor.hourlyRate) : 0;
   const sessionHours = bookingData.duration / 60;
   const basePrice = mentorHourlyRateValue * sessionHours;
+  const isFreeSession = bookingData.sessionType === 'FREE';
   const hasAiPlanPricing =
     bookingSource === 'ai' &&
     bookingData.sessionType === 'PAID' &&
     typeof aiSpecialRate === 'number' &&
     aiSpecialRate > 0;
   const planTotal = hasAiPlanPricing ? aiSpecialRate * sessionHours : null;
-  const displayTotal = planTotal !== null ? planTotal : basePrice;
-  const savings = planTotal !== null ? Math.max(0, basePrice - planTotal) : 0;
+  const displayTotal = isFreeSession
+    ? 0
+    : planTotal !== null
+      ? planTotal
+      : basePrice;
+  const displayCurrency =
+    planTotal !== null ? aiSpecialCurrency || mentor.currency : mentor.currency;
+  const savings =
+    planTotal !== null && displayCurrency === mentor.currency
+      ? Math.max(0, basePrice - planTotal)
+      : 0;
 
   const formatCurrency = (amount: number, currency: string = 'USD') => {
     return new Intl.NumberFormat('en-US', {
@@ -187,7 +199,7 @@ export function BookingConfirmation({
           </Card>
 
           <div className="grid content-start gap-4">
-            {mentor.hourlyRate && (
+            {(mentor.hourlyRate || isFreeSession || planTotal !== null) && (
               <Card className="border-slate-200 dark:border-slate-800">
                 <CardContent className="space-y-3 p-4">
                   <div className="flex justify-between text-sm">
@@ -195,31 +207,36 @@ export function BookingConfirmation({
                     <span
                       className={hasAiPlanPricing ? 'text-slate-400 line-through' : 'font-medium'}
                     >
-                      {formatCurrency(basePrice, mentor.currency)}
+                      {formatCurrency(
+                        isFreeSession ? 0 : basePrice,
+                        mentor.currency
+                      )}
                     </span>
                   </div>
                   {hasAiPlanPricing && planTotal !== null && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">AI plan rate</span>
                       <span className="font-medium text-blue-600">
-                        {formatCurrency(planTotal, mentor.currency)}
+                        {formatCurrency(planTotal, displayCurrency)}
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Service fee</span>
-                    <span className="font-medium">$0.00</span>
+                    <span className="font-medium">
+                      {formatCurrency(0, displayCurrency)}
+                    </span>
                   </div>
                   <Separator />
                   <div className="flex items-end justify-between">
                     <span className="font-bold">Total</span>
                     <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {formatCurrency(displayTotal, mentor.currency)}
+                      {formatCurrency(displayTotal, displayCurrency)}
                     </span>
                   </div>
                   {hasAiPlanPricing && savings > 0 && (
                     <p className="text-xs font-semibold text-green-600">
-                      You save {formatCurrency(savings, mentor.currency)} with your plan rate
+                      You save {formatCurrency(savings, displayCurrency)} with your plan rate
                     </p>
                   )}
                 </CardContent>

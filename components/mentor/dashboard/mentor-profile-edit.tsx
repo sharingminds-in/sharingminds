@@ -89,6 +89,10 @@ export function MentorProfileEdit() {
     updatedAt: ''
   });
 
+  const hasAdminRateOverride =
+    mentorProfile?.adminHourlyRateOverride !== null &&
+    mentorProfile?.adminHourlyRateOverride !== undefined;
+
   // Load mentor profile data only when not editing to avoid losing unsaved form state
   useEffect(() => {
     if (!mentorProfile) return;
@@ -780,7 +784,7 @@ export function MentorProfileEdit() {
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="hourlyRate">Hourly Rate ({mentorData.currency})</Label>
+                  <Label htmlFor="hourlyRate">Your hourly rate ({mentorData.currency})</Label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-muted-foreground">$</span>
                     <Input
@@ -814,6 +818,23 @@ export function MentorProfileEdit() {
                   </Select>
                 </div>
               </div>
+
+              {hasAdminRateOverride && (
+                <Alert>
+                  <DollarSign className="h-4 w-4" />
+                  <AlertTitle>Platform rate override active</AlertTitle>
+                  <AlertDescription>
+                    Your requested rate is {mentorData.currency}{' '}
+                    {mentorData.hourlyRate || '0'}/hr. Mentees currently see
+                    and pay {mentorData.currency}{' '}
+                    {mentorProfile.adminHourlyRateOverride}/hr for standard
+                    sessions.
+                    {mentorProfile.rateOverrideReason
+                      ? ` Reason: ${mentorProfile.rateOverrideReason}`
+                      : ''}
+                  </AlertDescription>
+                </Alert>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="availability">Weekly Availability</Label>

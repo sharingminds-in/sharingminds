@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import type { FeatureKey } from '@/lib/subscriptions/feature-keys';
 import {
+  getFeatureLimitCurrency,
   getNumericFeatureLimitAmount,
   hasIncludedFeature,
   type SubscriptionFeatureRecord,
@@ -136,6 +137,7 @@ export function useSubscriptionFeatureLimitAmount(
   return {
     ...query,
     limitAmount: getNumericFeatureLimitAmount(query.data?.features, featureKey),
+    limitCurrency: getFeatureLimitCurrency(query.data?.features, featureKey),
   };
 }
 

@@ -39,6 +39,7 @@ export interface SubscriptionPlanFeature {
   limit_minutes: number | null;
   limit_text: string | null;
   limit_amount: number | null;
+  limit_currency?: string | null;
   limit_percent: number | null;
   limit_json: Record<string, any> | null;
 

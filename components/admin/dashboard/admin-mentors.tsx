@@ -22,6 +22,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Tooltip,
   TooltipContent,
@@ -46,7 +48,9 @@ import {
   Mail,
   MessageSquare,
   Crown,
+  DollarSign,
   Send,
+  Search,
 } from 'lucide-react';
 import Image from 'next/image';
 import { format } from 'date-fns';
@@ -58,6 +62,7 @@ import {
   useAdminMentorsQuery,
   useAdminSendMentorCouponMutation,
   useAdminUpdateMentorMutation,
+  useAdminUpdateMentorPricingMutation,
 } from '@/hooks/queries/use-admin-queries';
 
 type VerificationStatus =
@@ -184,10 +189,13 @@ export function AdminMentors() {
   const [selectedMentorId, setSelectedMentorId] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('pending');
+  const [search, setSearch] = useState('');
   const [couponToggles, setCouponToggles] = useState<Record<string, boolean>>({});
   const [expertToggles, setExpertToggles] = useState<Record<string, boolean>>({});
   const [sendingCouponId, setSendingCouponId] = useState<string | null>(null);
   const [updatingExpertId, setUpdatingExpertId] = useState<string | null>(null);
+  const [adminRateOverride, setAdminRateOverride] = useState('');
+  const [rateOverrideReason, setRateOverrideReason] = useState('');
   const [messageRecipient, setMessageRecipient] = useState<Mentor | null>(null);
   const [verifiedFilters, setVerifiedFilters] = useState({
     paymentPending: false,
@@ -200,6 +208,7 @@ export function AdminMentors() {
     refetch,
   } = useAdminMentorsQuery();
   const updateMentorMutation = useAdminUpdateMentorMutation();
+  const updateMentorPricingMutation = useAdminUpdateMentorPricingMutation();
   const sendMentorCouponMutation = useAdminSendMentorCouponMutation();
 
   useEffect(() => {
@@ -228,6 +237,15 @@ export function AdminMentors() {
     () => mentors.find((mentor) => mentor.id === selectedMentorId) ?? null,
     [mentors, selectedMentorId],
   );
+
+  useEffect(() => {
+    setAdminRateOverride(selectedMentor?.adminHourlyRateOverride ?? '');
+    setRateOverrideReason(selectedMentor?.rateOverrideReason ?? '');
+  }, [
+    selectedMentor?.id,
+    selectedMentor?.adminHourlyRateOverride,
+    selectedMentor?.rateOverrideReason,
+  ]);
   const auditQuery = useAdminMentorAuditQuery(
     selectedMentor?.verificationStatus === 'UPDATED_PROFILE'
       ? selectedMentor.id
@@ -236,17 +254,48 @@ export function AdminMentors() {
   const auditData = auditQuery.data ?? null;
   const isAuditLoading = auditQuery.isLoading;
 
+  const filteredMentors = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return mentors;
+
+    return mentors.filter((mentor) => {
+      const haystack = [
+        mentor.name,
+        mentor.fullName,
+        mentor.email,
+        mentor.title,
+        mentor.company,
+        mentor.industry,
+        mentor.headline,
+        mentor.about,
+        mentor.location,
+        mentor.city,
+        mentor.state,
+        mentor.country,
+        ...mentor.expertise,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(term);
+    });
+  }, [mentors, search]);
+
   const pendingMentors = useMemo(
     () =>
-      mentors.filter((mentor) =>
+      filteredMentors.filter((mentor) =>
         pendingStatuses.includes(mentor.verificationStatus),
       ),
-    [mentors],
+    [filteredMentors],
   );
 
   const verifiedMentors = useMemo(
-    () => mentors.filter((mentor) => mentor.verificationStatus === 'VERIFIED'),
-    [mentors],
+    () =>
+      filteredMentors.filter(
+        (mentor) => mentor.verificationStatus === 'VERIFIED',
+      ),
+    [filteredMentors],
   );
 
   const filteredVerifiedMentors = useMemo(() => {
@@ -265,15 +314,24 @@ export function AdminMentors() {
   }, [verifiedMentors, verifiedFilters]);
 
   const rejectedMentors = useMemo(
-    () => mentors.filter((mentor) => mentor.verificationStatus === 'REJECTED'),
-    [mentors],
+    () =>
+      filteredMentors.filter(
+        (mentor) => mentor.verificationStatus === 'REJECTED',
+      ),
+    [filteredMentors],
   );
 
   const stats = {
     total: mentors.length,
-    pending: pendingMentors.length,
-    verified: verifiedMentors.length,
-    rejected: rejectedMentors.length,
+    pending: mentors.filter((mentor) =>
+      pendingStatuses.includes(mentor.verificationStatus),
+    ).length,
+    verified: mentors.filter(
+      (mentor) => mentor.verificationStatus === 'VERIFIED',
+    ).length,
+    rejected: mentors.filter(
+      (mentor) => mentor.verificationStatus === 'REJECTED',
+    ).length,
   };
 
   const isProcessing = (mentorId: string) => pendingAction?.id === mentorId;
@@ -416,12 +474,55 @@ export function AdminMentors() {
     }
   };
 
+  const saveMentorPricing = async (clearOverride = false) => {
+    if (!selectedMentor) return;
+
+    const normalizedValue = adminRateOverride.trim();
+    const parsedOverride = clearOverride
+      ? null
+      : normalizedValue === ''
+        ? null
+        : Number(normalizedValue);
+
+    if (
+      parsedOverride !== null &&
+      (!Number.isFinite(parsedOverride) || parsedOverride < 0)
+    ) {
+      toast.error('Enter a valid non-negative hourly rate');
+      return;
+    }
+
+    try {
+      await updateMentorPricingMutation.mutateAsync({
+        mentorId: selectedMentor.id,
+        adminHourlyRateOverride: parsedOverride,
+        reason: clearOverride ? null : rateOverrideReason.trim() || null,
+      });
+      if (clearOverride) {
+        setAdminRateOverride('');
+        setRateOverrideReason('');
+      }
+      toast.success(
+        parsedOverride === null
+          ? 'Mentor rate override cleared'
+          : 'Mentor pricing updated'
+      );
+    } catch (error) {
+      toast.error('Failed to update mentor pricing', {
+        description:
+          error instanceof Error ? error.message : 'Something went wrong',
+      });
+    }
+  };
+
   const renderMentorList = (rows: Mentor[], options?: { showCouponToggle?: boolean }) => {
     if (!rows.length) {
       return (
         <div className='flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 py-12 text-sm text-muted-foreground'>
           <ShieldQuestion className='h-6 w-6' />
-          No mentors found for this view.
+          {search.trim()
+            ? 'No mentors found for that search term.'
+            : 'No mentors found for this view.'}
         </div>
       );
     }
@@ -629,6 +730,19 @@ export function AdminMentors() {
                   </div>
 
                   <div className='flex flex-1 flex-col gap-3 md:items-end'>
+                    <div className='text-left md:text-right'>
+                      <p className='text-xs font-semibold uppercase tracking-wide text-muted-foreground'>
+                        Effective session rate
+                      </p>
+                      <p className='mt-1 text-sm font-semibold text-foreground'>
+                        {mentor.effectiveHourlyRate !== null
+                          ? `${mentor.currency ?? 'USD'} ${mentor.effectiveHourlyRate}/hr`
+                          : 'Not provided'}
+                      </p>
+                      {mentor.adminHourlyRateOverride !== null && (
+                        <p className='text-xs text-amber-600'>Admin override</p>
+                      )}
+                    </div>
                     {mentor.verificationStatus === 'VERIFIED' && (
                       <label className='inline-flex items-center gap-2 text-sm text-muted-foreground'>
                         <Checkbox
@@ -865,9 +979,22 @@ export function AdminMentors() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Mentor verification</CardTitle>
-          <CardDescription>Review and manage expert applications.</CardDescription>
+        <CardHeader className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
+          <div>
+            <CardTitle>Mentor verification</CardTitle>
+            <CardDescription>
+              Review and manage expert applications.
+            </CardDescription>
+          </div>
+          <div className='flex w-full max-w-sm items-center gap-2'>
+            <Search className='h-4 w-4 text-muted-foreground' />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder='Search by name, email, expertise...'
+              className='h-9'
+            />
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className='w-full'>
@@ -881,7 +1008,7 @@ export function AdminMentors() {
               <TabsTrigger value='rejected'>
                 Rejected ({rejectedMentors.length})
               </TabsTrigger>
-              <TabsTrigger value='all'>All ({mentors.length})</TabsTrigger>
+              <TabsTrigger value='all'>All ({filteredMentors.length})</TabsTrigger>
             </TabsList>
             <TabsContent value='pending'>
               {renderMentorList(pendingMentors, { showCouponToggle: true })}
@@ -919,7 +1046,7 @@ export function AdminMentors() {
               {renderMentorList(rejectedMentors)}
             </TabsContent>
             <TabsContent value='all'>
-              {renderMentorList(mentors)}
+              {renderMentorList(filteredMentors)}
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -1151,6 +1278,109 @@ export function AdminMentors() {
                   </section>
 
                   <Separator />
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className='flex items-center gap-2 text-base'>
+                        <DollarSign className='h-4 w-4' />
+                        Session pricing
+                      </CardTitle>
+                      <CardDescription>
+                        Set an optional platform override. Leaving it empty uses
+                        the mentor&apos;s requested hourly rate.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className='space-y-4'>
+                      <div className='grid gap-4 md:grid-cols-3'>
+                        <div>
+                          <p className='text-xs text-muted-foreground'>
+                            Mentor requested rate
+                          </p>
+                          <p className='font-semibold'>
+                            {selectedMentor.hourlyRate
+                              ? `${selectedMentor.currency ?? 'USD'} ${selectedMentor.hourlyRate}/hr`
+                              : 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className='text-xs text-muted-foreground'>
+                            Current admin override
+                          </p>
+                          <p className='font-semibold'>
+                            {selectedMentor.adminHourlyRateOverride !== null
+                              ? `${selectedMentor.currency ?? 'USD'} ${selectedMentor.adminHourlyRateOverride}/hr`
+                              : 'None'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className='text-xs text-muted-foreground'>
+                            Effective standard rate
+                          </p>
+                          <p className='font-semibold text-primary'>
+                            {selectedMentor.effectiveHourlyRate !== null
+                              ? `${selectedMentor.currency ?? 'USD'} ${selectedMentor.effectiveHourlyRate}/hr`
+                              : 'Not provided'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className='grid gap-4 md:grid-cols-2'>
+                        <div className='space-y-2'>
+                          <Label htmlFor='admin-hourly-rate'>
+                            Admin hourly rate override
+                          </Label>
+                          <Input
+                            id='admin-hourly-rate'
+                            type='number'
+                            min='0'
+                            step='0.01'
+                            value={adminRateOverride}
+                            onChange={(event) =>
+                              setAdminRateOverride(event.target.value)
+                            }
+                            placeholder={`Use mentor rate (${selectedMentor.currency ?? 'USD'})`}
+                          />
+                        </div>
+                        <div className='space-y-2'>
+                          <Label htmlFor='rate-override-reason'>
+                            Override reason
+                          </Label>
+                          <Textarea
+                            id='rate-override-reason'
+                            value={rateOverrideReason}
+                            onChange={(event) =>
+                              setRateOverrideReason(event.target.value)
+                            }
+                            maxLength={500}
+                            placeholder='Optional internal context for this rate'
+                          />
+                        </div>
+                      </div>
+
+                      <div className='flex flex-wrap justify-end gap-2'>
+                        {selectedMentor.adminHourlyRateOverride !== null && (
+                          <Button
+                            type='button'
+                            variant='outline'
+                            onClick={() => void saveMentorPricing(true)}
+                            disabled={updateMentorPricingMutation.isPending}
+                          >
+                            Use mentor rate
+                          </Button>
+                        )}
+                        <Button
+                          type='button'
+                          onClick={() => void saveMentorPricing()}
+                          disabled={updateMentorPricingMutation.isPending}
+                        >
+                          {updateMentorPricingMutation.isPending && (
+                            <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                          )}
+                          Save pricing
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
 
                   <section
                     aria-labelledby='mentor-summary-heading'

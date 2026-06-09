@@ -14,6 +14,7 @@ import {
   users,
 } from '@/lib/db/schema';
 import { createBooking } from '@/lib/bookings/server/service';
+import { resolveSessionPrice } from '@/lib/bookings/session-pricing';
 import type { TRPCContext } from '@/lib/trpc/context';
 import { getUserWithRoles } from '@/lib/db/user-helpers';
 import { getPlanFeatures } from '@/lib/subscriptions/enforcement';
@@ -313,6 +314,7 @@ async function getSessionBookingAmount(
     .select({
       userId: mentors.userId,
       hourlyRate: mentors.hourlyRate,
+      adminHourlyRateOverride: mentors.adminHourlyRateOverride,
       currency: mentors.currency,
       isAvailable: mentors.isAvailable,
       searchMode: mentors.searchMode,
@@ -323,7 +325,8 @@ async function getSessionBookingAmount(
 
   assertPayment(mentor?.isAvailable, 404, 'Mentor not found or not available');
 
-  let amount = mentor.hourlyRate ? Number(mentor.hourlyRate) : 0;
+  let aiPlanHourlyRate: number | null = null;
+  let aiPlanCurrency: string | null = null;
   if (input.bookingSource === 'ai' && input.sessionType === 'PAID') {
     assertPayment(
       mentor.searchMode === 'AI_SEARCH',
@@ -344,16 +347,29 @@ async function getSessionBookingAmount(
         paidVideoFeature?.limit_amount &&
         paidVideoFeature.limit_amount > 0
       ) {
-        amount = paidVideoFeature.limit_amount;
+        aiPlanHourlyRate = paidVideoFeature.limit_amount;
+        aiPlanCurrency = paidVideoFeature.limit_currency ?? null;
       }
     } catch {
-      amount = mentor.hourlyRate ? Number(mentor.hourlyRate) : 0;
+      aiPlanHourlyRate = null;
+      aiPlanCurrency = null;
     }
   }
 
+  const pricing = resolveSessionPrice({
+    sessionType: input.sessionType,
+    bookingSource: input.bookingSource,
+    durationMinutes: input.duration,
+    mentorHourlyRate: mentor.hourlyRate,
+    mentorCurrency: mentor.currency,
+    adminHourlyRateOverride: mentor.adminHourlyRateOverride,
+    aiPlanHourlyRate,
+    aiPlanCurrency,
+  });
+
   return {
-    amount,
-    currency: mentor.currency || 'INR',
+    amount: pricing.amount,
+    currency: pricing.currency,
   };
 }
 

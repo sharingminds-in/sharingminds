@@ -86,6 +86,8 @@ export async function getCurrentUserProfile(
             githubUrl: mentors.githubUrl,
             websiteUrl: mentors.websiteUrl,
             hourlyRate: mentors.hourlyRate,
+            adminHourlyRateOverride: mentors.adminHourlyRateOverride,
+            rateOverrideReason: mentors.rateOverrideReason,
             currency: mentors.currency,
             availability: mentors.availability,
             headline: mentors.headline,

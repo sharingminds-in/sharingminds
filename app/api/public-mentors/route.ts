@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { mentors, users } from '@/lib/db/schema'
-import { and, eq, ilike, or, desc } from 'drizzle-orm'
+import { and, eq, ilike, or, desc, sql } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { enforceFeature, consumeFeature, isSubscriptionPolicyError } from '@/lib/subscriptions/policy-runtime'
 import type { SubscriptionPolicyAction } from '@/lib/subscriptions/policies'
@@ -133,7 +133,10 @@ export async function GET(req: NextRequest) {
         industry: mentors.industry,
         expertise: mentors.expertise,
         experience: mentors.experience,          // number
-        hourlyRate: mentors.hourlyRate,          // string in your schema
+        hourlyRate: sql<string | null>`COALESCE(
+          ${mentors.adminHourlyRateOverride},
+          ${mentors.hourlyRate}
+        )`,
         currency: mentors.currency,
         headline: mentors.headline,
         about: mentors.about,

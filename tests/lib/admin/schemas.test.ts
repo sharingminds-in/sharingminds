@@ -4,6 +4,7 @@ import {
   adminCreateAdminUserInputSchema,
   adminCreateMentorUserInputSchema,
   adminPromoteAdminUserInputSchema,
+  adminUpdateMentorPricingInputSchema,
 } from '@/lib/admin/server/schemas';
 
 const VALID_INPUT = {
@@ -118,6 +119,37 @@ describe('adminCreateAdminUserInputSchema', () => {
     if (!result.success) {
       expect(result.error.flatten().fieldErrors.adminLevel).toBeDefined();
     }
+  });
+});
+
+describe('adminUpdateMentorPricingInputSchema', () => {
+  it('accepts an override or a null value to clear it', () => {
+    expect(
+      adminUpdateMentorPricingInputSchema.parse({
+        mentorId: '7b481b55-4f25-40e1-9d95-73f44bb6fda4',
+        adminHourlyRateOverride: 1500,
+        reason: 'Platform pricing agreement',
+      })
+    ).toMatchObject({
+      adminHourlyRateOverride: 1500,
+      reason: 'Platform pricing agreement',
+    });
+
+    expect(
+      adminUpdateMentorPricingInputSchema.parse({
+        mentorId: '7b481b55-4f25-40e1-9d95-73f44bb6fda4',
+        adminHourlyRateOverride: null,
+      }).adminHourlyRateOverride
+    ).toBeNull();
+  });
+
+  it('rejects negative override rates', () => {
+    expect(
+      adminUpdateMentorPricingInputSchema.safeParse({
+        mentorId: '7b481b55-4f25-40e1-9d95-73f44bb6fda4',
+        adminHourlyRateOverride: -1,
+      }).success
+    ).toBe(false);
   });
 });
 

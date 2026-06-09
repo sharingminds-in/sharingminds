@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  getFeatureLimitCurrency,
   getNumericFeatureLimitAmount,
   hasIncludedFeature,
 } from '@/lib/subscriptions/client-access';
@@ -84,5 +85,20 @@ describe('subscription client access helpers', () => {
     expect(
       getNumericFeatureLimitAmount([], FEATURE_KEYS.PAID_VIDEO_SESSIONS_MONTHLY)
     ).toBeNull();
+  });
+
+  it('normalizes the configured feature currency', () => {
+    expect(
+      getFeatureLimitCurrency(
+        [
+          {
+            feature_key: FEATURE_KEYS.PAID_VIDEO_SESSIONS_MONTHLY,
+            is_included: true,
+            limit_currency: ' inr ',
+          },
+        ],
+        FEATURE_KEYS.PAID_VIDEO_SESSIONS_MONTHLY
+      )
+    ).toBe('INR');
   });
 });

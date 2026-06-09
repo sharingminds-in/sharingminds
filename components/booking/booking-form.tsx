@@ -54,6 +54,7 @@ interface BookingFormProps {
   }>;
   bookingSource?: 'ai' | 'explore' | 'default';
   aiSpecialRate?: number | null;
+  aiSpecialCurrency?: string | null;
 }
 
 const MEETING_TYPES = [
@@ -82,6 +83,7 @@ export function BookingForm({
   initialData,
   bookingSource = 'default',
   aiSpecialRate = null,
+  aiSpecialCurrency = null,
 }: BookingFormProps) {
   const shouldHideSessionTypeSelector = Boolean(hideSessionTypeSelector);
   const freeAvailable = availability?.freeAvailable ?? true;
@@ -147,14 +149,24 @@ export function BookingForm({
   const mentorHourlyRateValue = mentor.hourlyRate ? Number(mentor.hourlyRate) : 0;
   const sessionHours = formData.duration / 60;
   const basePrice = mentorHourlyRateValue * sessionHours;
+  const isFreeSession = formData.sessionType === 'FREE';
   const hasAiPlanPricing =
     bookingSource === 'ai' &&
     formData.sessionType === 'PAID' &&
     typeof aiSpecialRate === 'number' &&
     aiSpecialRate > 0;
   const planTotal = hasAiPlanPricing ? aiSpecialRate * sessionHours : null;
-  const displayPrice = planTotal !== null ? planTotal : basePrice;
-  const savings = planTotal !== null ? Math.max(0, basePrice - planTotal) : 0;
+  const displayPrice = isFreeSession
+    ? 0
+    : planTotal !== null
+      ? planTotal
+      : basePrice;
+  const displayCurrency =
+    planTotal !== null ? aiSpecialCurrency || mentor.currency : mentor.currency;
+  const savings =
+    planTotal !== null && displayCurrency === mentor.currency
+      ? Math.max(0, basePrice - planTotal)
+      : 0;
 
   return (
     <div className="flex h-full flex-col px-5 pb-5 pt-2">
@@ -253,7 +265,7 @@ export function BookingForm({
                       <span className="block text-sm font-bold">
                         {option.label}
                       </span>
-                      {mentor.hourlyRate && (
+                      {mentor.hourlyRate && formData.sessionType !== 'FREE' && (
                         <span className="block text-xs text-slate-500">
                           {formatCurrency(mentor.hourlyRate * option.price, mentor.currency)}
                         </span>
@@ -389,13 +401,19 @@ export function BookingForm({
               )}
             </div>
 
-            {mentor.hourlyRate && (
+            {(mentor.hourlyRate || isFreeSession || planTotal !== null) && (
               <div className="rounded-xl border bg-slate-50 p-3 dark:bg-slate-900/50">
                 <p className="text-xs text-muted-foreground">Estimated total</p>
                 <div className="mt-1 flex items-end justify-between gap-3">
                   <div className="text-xs text-slate-500">
-                    {formData.duration} mins @{' '}
-                    {formatCurrency(mentorHourlyRateValue, mentor.currency)}/hr
+                    {isFreeSession
+                      ? 'Free session'
+                      : `${formData.duration} mins @ ${formatCurrency(
+                          planTotal !== null
+                            ? aiSpecialRate ?? mentorHourlyRateValue
+                            : mentorHourlyRateValue,
+                          displayCurrency
+                        )}/hr`}
                   </div>
                   <div className="text-right">
                     {planTotal !== null && (
@@ -404,7 +422,7 @@ export function BookingForm({
                       </p>
                     )}
                     <p className="text-2xl font-bold">
-                      {formatCurrency(displayPrice, mentor.currency)}
+                      {formatCurrency(displayPrice, displayCurrency)}
                     </p>
                   </div>
                 </div>

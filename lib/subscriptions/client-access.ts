@@ -1,9 +1,10 @@
 import type { FeatureKey } from '@/lib/subscriptions/feature-keys';
 
 export interface SubscriptionFeatureRecord {
-  feature_key: string;
-  is_included: boolean;
+  feature_key?: string;
+  is_included?: boolean;
   limit_amount?: number | string | null;
+  limit_currency?: string | null;
 }
 
 export function hasIncludedFeature(
@@ -35,4 +36,15 @@ export function getNumericFeatureLimitAmount(
   }
 
   return null;
+}
+
+export function getFeatureLimitCurrency(
+  features: SubscriptionFeatureRecord[] | null | undefined,
+  featureKey: FeatureKey
+) {
+  const currency = features?.find(
+    (item) => item.feature_key === featureKey
+  )?.limit_currency;
+
+  return currency?.trim().toUpperCase() || null;
 }

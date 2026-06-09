@@ -56,6 +56,7 @@ import {
   adminSendMentorCouponInputSchema,
   adminUpdateEnquiryInputSchema,
   adminUpdateMentorInputSchema,
+  adminUpdateMentorPricingInputSchema,
   adminUpdatePoliciesInputSchema,
   type AdminCreateMentorUserInput,
   type AdminCreateAdminUserInput,
@@ -63,6 +64,7 @@ import {
   type AdminSendMentorCouponInput,
   type AdminUpdateEnquiryInput,
   type AdminUpdateMentorInput,
+  type AdminUpdateMentorPricingInput,
   type AdminUpdatePoliciesInput,
 } from './schemas';
 import { AdminServiceError, assertAdminService } from './errors';
@@ -88,6 +90,10 @@ const mentorSelectFields = {
   experienceYears: mentors.experience,
   expertise: mentors.expertise,
   hourlyRate: mentors.hourlyRate,
+  adminHourlyRateOverride: mentors.adminHourlyRateOverride,
+  rateOverrideReason: mentors.rateOverrideReason,
+  rateOverriddenAt: mentors.rateOverriddenAt,
+  rateOverriddenBy: mentors.rateOverriddenBy,
   currency: mentors.currency,
   verificationStatus: mentors.verificationStatus,
   verificationNotes: mentors.verificationNotes,
@@ -248,6 +254,13 @@ async function formatMentorRecord(raw: MentorRow) {
     experienceYears: raw.experienceYears,
     expertise: parseJsonList(raw.expertise),
     hourlyRate: raw.hourlyRate,
+    adminHourlyRateOverride: raw.adminHourlyRateOverride,
+    effectiveHourlyRate: raw.adminHourlyRateOverride ?? raw.hourlyRate,
+    rateOverrideReason: raw.rateOverrideReason,
+    rateOverriddenAt: raw.rateOverriddenAt
+      ? raw.rateOverriddenAt.toISOString()
+      : null,
+    rateOverriddenBy: raw.rateOverriddenBy,
     currency: raw.currency,
     verificationStatus: raw.verificationStatus,
     verificationNotes: raw.verificationNotes,
@@ -864,6 +877,54 @@ export async function updateAdminMentor(
       );
     }
   }
+
+  return {
+    mentor: await getFormattedMentorById(context, parsed.mentorId),
+  };
+}
+
+export async function updateAdminMentorPricing(
+  context: AdminServiceContext,
+  input: AdminUpdateMentorPricingInput
+) {
+  const actor = await getAdminActor(context);
+  const parsed = adminUpdateMentorPricingInputSchema.parse(input);
+  const database = getAdminDb(context);
+  const existingRows = await fetchMentorRows(context, parsed.mentorId);
+  const existingMentor = existingRows[0];
+
+  assertAdminService(existingMentor, 404, 'Mentor not found');
+
+  const hasOverride = parsed.adminHourlyRateOverride !== null;
+  const reason = hasOverride ? parsed.reason?.trim() || null : null;
+
+  await database
+    .update(mentors)
+    .set({
+      adminHourlyRateOverride: hasOverride
+        ? parsed.adminHourlyRateOverride.toFixed(2)
+        : null,
+      rateOverrideReason: reason,
+      rateOverriddenAt: hasOverride ? new Date() : null,
+      rateOverriddenBy: hasOverride ? actor.id : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(mentors.id, parsed.mentorId));
+
+  await logAdminAction({
+    adminId: actor.id,
+    action: hasOverride
+      ? 'MENTOR_SESSION_RATE_OVERRIDE_UPDATED'
+      : 'MENTOR_SESSION_RATE_OVERRIDE_CLEARED',
+    targetId: existingMentor.userId,
+    targetType: 'mentor',
+    details: {
+      previousOverride: existingMentor.adminHourlyRateOverride,
+      newOverride: parsed.adminHourlyRateOverride,
+      reason,
+      currency: existingMentor.currency,
+    },
+  });
 
   return {
     mentor: await getFormattedMentorById(context, parsed.mentorId),

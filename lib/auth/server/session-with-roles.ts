@@ -81,6 +81,9 @@ export async function getSessionWithRoles(
         githubUrl: mentors.githubUrl,
         websiteUrl: mentors.websiteUrl,
         hourlyRate: mentors.hourlyRate,
+        adminHourlyRateOverride: mentors.adminHourlyRateOverride,
+        rateOverrideReason: mentors.rateOverrideReason,
+        rateOverriddenAt: mentors.rateOverriddenAt,
         currency: mentors.currency,
         availability: mentors.availability,
         headline: mentors.headline,
@@ -106,6 +109,7 @@ export async function getSessionWithRoles(
           profileImageUrl: await resolveStorageUrl(mentor.profileImageUrl),
           bannerImageUrl: await resolveStorageUrl(mentor.bannerImageUrl),
           resumeUrl: await resolveStorageUrl(mentor.resumeUrl),
+          rateOverriddenAt: serializeDate(mentor.rateOverriddenAt),
           createdAt: serializeDate(mentor.createdAt),
           updatedAt: serializeDate(mentor.updatedAt),
         }

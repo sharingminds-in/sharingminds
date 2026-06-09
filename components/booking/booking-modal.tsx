@@ -95,7 +95,10 @@ export function BookingModal({
   } | null>(null);
   const createBookingMutation = useCreateBookingMutation();
   const openPaymentCheckout = useRazorpayCheckout();
-  const { limitAmount: aiSpecialRate } = useSubscriptionFeatureLimitAmount(
+  const {
+    limitAmount: aiSpecialRate,
+    limitCurrency: aiSpecialCurrency,
+  } = useSubscriptionFeatureLimitAmount(
     'mentee',
     FEATURE_KEYS.PAID_VIDEO_SESSIONS_MONTHLY,
     isOpen && bookingSource === 'ai'
@@ -445,6 +448,7 @@ export function BookingModal({
                         initialData={bookingData}
                         bookingSource={bookingSource}
                         aiSpecialRate={aiSpecialRate}
+                        aiSpecialCurrency={aiSpecialCurrency}
                       />
                     </motion.div>
                   )}
@@ -466,6 +470,7 @@ export function BookingModal({
                         isSubmitting={isSubmitting}
                         bookingSource={bookingSource}
                         aiSpecialRate={aiSpecialRate}
+                        aiSpecialCurrency={aiSpecialCurrency}
                       />
                     </motion.div>
                   )}

@@ -84,6 +84,7 @@ export interface PlanFeatureRow {
   limit_minutes: number | null;
   limit_text: string | null;
   limit_amount: number | null;
+  limit_currency: string | null;
   limit_percent: number | null;
   limit_json: Record<string, any> | null;
   limit_interval: SubscriptionBillingInterval | null;
@@ -177,6 +178,7 @@ export async function getPlanFeaturesByPlanId(planId: string): Promise<PlanFeatu
       limit_minutes: subscriptionPlanFeatures.limitMinutes,
       limit_text: subscriptionPlanFeatures.limitText,
       limit_amount: subscriptionPlanFeatures.limitAmount,
+      limit_currency: subscriptionPlanFeatures.limitCurrency,
       limit_percent: subscriptionPlanFeatures.limitPercent,
       limit_json: subscriptionPlanFeatures.limitJson,
       limit_interval: subscriptionPlanFeatures.limitInterval,

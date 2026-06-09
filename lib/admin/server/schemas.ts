@@ -23,6 +23,22 @@ export const adminUpdateMentorInputSchema = z.object({
   isExpert: z.boolean().optional(),
 });
 
+export const adminUpdateMentorPricingInputSchema = z.object({
+  mentorId: z.string().uuid('Invalid mentor identifier'),
+  adminHourlyRateOverride: z
+    .number()
+    .finite()
+    .min(0, 'Hourly rate cannot be negative')
+    .max(10000000, 'Hourly rate is too large')
+    .nullable(),
+  reason: z
+    .string()
+    .trim()
+    .max(500, 'Override reason must be 500 characters or fewer')
+    .nullable()
+    .optional(),
+});
+
 export const adminSendMentorCouponInputSchema = z.object({
   mentorId: z.string().uuid('Invalid mentor identifier'),
 });
@@ -136,6 +152,9 @@ export const adminPromoteAdminUserInputSchema = z.object({
 export type AdminMentorStatus = z.infer<typeof adminMentorStatusSchema>;
 export type AdminUpdateMentorInput = z.infer<
   typeof adminUpdateMentorInputSchema
+>;
+export type AdminUpdateMentorPricingInput = z.infer<
+  typeof adminUpdateMentorPricingInputSchema
 >;
 export type AdminSendMentorCouponInput = z.infer<
   typeof adminSendMentorCouponInputSchema

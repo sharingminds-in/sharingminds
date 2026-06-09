@@ -51,6 +51,7 @@ import { FEATURE_KEYS } from '@/lib/subscriptions/feature-keys';
 import { findAvailableReplacementMentor } from '@/lib/services/mentor-matching';
 import { MENTOR_FEATURE_KEYS } from '@/lib/mentor/access-policy';
 import { isRazorpayEnabled } from '@/lib/payments/config';
+import { resolveSessionPrice } from '@/lib/bookings/session-pricing';
 import {
   sendAlternativeMentorSelectedEmail,
   sendBookingConfirmedEmail,
@@ -502,6 +503,7 @@ export async function createBooking(
   const bookingSource = parsed.bookingSource ?? 'default';
   const isAiBooking = bookingSource === 'ai';
   let aiSpecialRate: number | null = null;
+  let aiSpecialCurrency: string | null = null;
   let mentorSessionFeatureAction:
     | 'mentor.free_session_availability'
     | 'mentor.paid_session_availability'
@@ -573,6 +575,7 @@ export async function createBooking(
           paidVideoPlanRate > 0
         ) {
           aiSpecialRate = paidVideoPlanRate;
+          aiSpecialCurrency = paidVideoFeature?.limit_currency ?? null;
         }
       } catch (error) {
         console.error('Failed to load plan features for AI rate:', error);
@@ -729,13 +732,16 @@ export async function createBooking(
     );
   }
 
-  const mentorBaseRate = mentor.hourlyRate ? Number(mentor.hourlyRate) : 0;
-  const sessionRate =
-    isAiBooking &&
-    parsed.sessionType === 'PAID' &&
-    aiSpecialRate !== null
-      ? aiSpecialRate
-      : mentorBaseRate;
+  const pricing = resolveSessionPrice({
+    sessionType: parsed.sessionType,
+    bookingSource,
+    durationMinutes: parsed.duration,
+    mentorHourlyRate: mentor.hourlyRate,
+    mentorCurrency: mentor.currency,
+    adminHourlyRateOverride: mentor.adminHourlyRateOverride,
+    aiPlanHourlyRate: aiSpecialRate,
+    aiPlanCurrency: aiSpecialCurrency,
+  });
 
   const [newBooking] = await db
     .insert(sessions)
@@ -751,8 +757,10 @@ export async function createBooking(
       meetingType: parsed.meetingType,
       location: parsed.location,
       status: 'scheduled',
-      rate: sessionRate,
-      currency: mentor.currency || 'USD',
+      rate: pricing.amount,
+      hourlyRateSnapshot: pricing.hourlyRate,
+      rateSource: pricing.source,
+      currency: pricing.currency,
       paymentIntentId: options.paymentIntentId,
     })
     .returning();
@@ -1062,6 +1070,7 @@ async function findAvailableMentorsForSession(
         userId: mentors.userId,
         expertise: mentors.expertise,
         hourlyRate: mentors.hourlyRate,
+        adminHourlyRateOverride: mentors.adminHourlyRateOverride,
       })
       .from(mentors)
       .where(eq(mentors.userId, mentor.userId))
@@ -1082,7 +1091,10 @@ async function findAvailableMentorsForSession(
       name: userDetails.name || 'Unknown',
       avatar: userDetails.image || undefined,
       expertise: (mentorDetails.expertise as string[]) || [],
-      hourlyRate: Number(mentorDetails.hourlyRate) || 0,
+      hourlyRate:
+        Number(
+          mentorDetails.adminHourlyRateOverride ?? mentorDetails.hourlyRate
+        ) || 0,
       isAvailableAtOriginalTime: isTimeSlotAvailable && !hasConflict,
     });
   }
