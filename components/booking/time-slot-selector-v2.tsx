@@ -68,6 +68,9 @@ export function TimeSlotSelectorV2({ mentorId, onTimeSelected, initialSelectedTi
   const [mentorTimezone, setMentorTimezone] = useState<string>('UTC');
   const [slotPeriod, setSlotPeriod] = useState<SlotPeriod>('morning');
   const [slotPage, setSlotPage] = useState(0);
+  const [mobilePanel, setMobilePanel] = useState<'date' | 'time'>(
+    initialSelectedTime ? 'time' : 'date'
+  );
   const userTimezone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, []);
 
   const firstDayOfMonth = useMemo(() => startOfMonth(currentMonth), [currentMonth]);
@@ -213,6 +216,7 @@ export function TimeSlotSelectorV2({ mentorId, onTimeSelected, initialSelectedTi
     setSelectedDate(day);
     setSelectedTimeSlot(undefined);
     setSlotPage(0);
+    setMobilePanel('time');
   };
 
   const handleTimeSlotSelection = (slot: AvailableSlot) => {
@@ -236,204 +240,253 @@ export function TimeSlotSelectorV2({ mentorId, onTimeSelected, initialSelectedTi
   };
 
   return (
-    <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[minmax(300px,0.95fr)_minmax(340px,1.05fr)]">
-      <Card className="h-full border-border/80">
-        <CardContent className="flex h-full flex-col p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <Button aria-label="Previous month" variant="ghost" size="icon" onClick={() => navigateMonth('prev')}>
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <h3 className="text-base font-semibold">
-              {format(currentMonth, 'MMMM yyyy')}
-            </h3>
-            <Button aria-label="Next month" variant="ghost" size="icon" onClick={() => navigateMonth('next')}>
-              <ChevronRight className="h-5 w-5" />
-            </Button>
-          </div>
-          {monthLoading ? (
-            <Skeleton className="h-full min-h-[280px] w-full" />
-          ) : (
-            <div className="grid flex-1 grid-cols-7 gap-1 text-center">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                <div key={day} className="pb-1 text-xs font-medium text-gray-500 dark:text-gray-400">
-                  {day}
-                </div>
-              ))}
-              {calendarDays.map(day => {
-                const dayStr = format(day, 'yyyy-MM-dd');
-                const isDayInPast = isPast(day) && !isToday(day);
-                const isDayInCurrentMonth = isSameMonth(day, currentMonth);
-                const hasAvailability = monthAvailability[dayStr];
-                const isSelectable = !isDayInPast && hasAvailability;
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b border-border/70 px-3 py-2 lg:hidden">
+        <div className="grid grid-cols-2 rounded-lg bg-muted p-1">
+          <button
+            type="button"
+            onClick={() => setMobilePanel('date')}
+            className={cn(
+              'rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+              mobilePanel === 'date'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground'
+            )}
+          >
+            1. Date
+          </button>
+          <button
+            type="button"
+            onClick={() => selectedDate && setMobilePanel('time')}
+            disabled={!selectedDate}
+            className={cn(
+              'rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-40',
+              mobilePanel === 'time'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground'
+            )}
+          >
+            2. Time
+          </button>
+        </div>
+      </div>
 
-                return (
-                  <div key={day.toString()} className="flex items-center justify-center">
-                    <Button
-                      variant={selectedDate && isSameDay(day, selectedDate) ? 'default' : 'ghost'}
-                      className={cn(
-                        "h-9 w-9 rounded-full p-0 text-sm font-semibold",
-                        !isDayInCurrentMonth && "text-gray-300 dark:text-gray-600",
-                        isToday(day) && !isSameDay(day, selectedDate) && "bg-blue-100/60 dark:bg-blue-900/30",
-                        selectedDate && isSameDay(day, selectedDate) && "bg-blue-600 text-white hover:bg-blue-700",
-                        !isSelectable && "cursor-not-allowed text-gray-400 opacity-50 line-through dark:text-gray-500",
-                        isSelectable && !isSameDay(day, selectedDate) && "text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
-                      )}
-                      onClick={() => isSelectable && handleDateClick(day)}
-                      disabled={!isSelectable}
-                    >
-                      {format(day, 'd')}
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
+      <div className="grid min-h-0 flex-1 gap-3 p-3 lg:grid-cols-[minmax(320px,0.9fr)_minmax(380px,1.1fr)] lg:p-4">
+        <Card
+          className={cn(
+            'h-full min-h-0 border-border/80',
+            mobilePanel !== 'date' && 'hidden lg:block'
           )}
-        </CardContent>
-      </Card>
+        >
+          <CardContent className="flex h-full min-h-0 flex-col p-3">
+            <div className="mb-2 flex shrink-0 items-center justify-between">
+              <Button aria-label="Previous month" variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateMonth('prev')}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <h3 className="text-sm font-semibold">
+                {format(currentMonth, 'MMMM yyyy')}
+              </h3>
+              <Button aria-label="Next month" variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateMonth('next')}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            {monthLoading ? (
+              <Skeleton className="min-h-0 flex-1 w-full" />
+            ) : (
+              <div className="grid min-h-0 flex-1 grid-cols-7 grid-rows-[24px_repeat(6,minmax(0,1fr))] gap-1 text-center">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                  <div key={day} className="self-center text-[11px] font-medium text-muted-foreground">
+                    {day}
+                  </div>
+                ))}
+                {calendarDays.map(day => {
+                  const dayStr = format(day, 'yyyy-MM-dd');
+                  const isDayInPast = isPast(day) && !isToday(day);
+                  const isDayInCurrentMonth = isSameMonth(day, currentMonth);
+                  const hasAvailability = monthAvailability[dayStr];
+                  const isSelectable = !isDayInPast && hasAvailability;
 
-      <Card className="h-full border-border/80">
-        <CardContent className="flex h-full min-h-0 flex-col p-4">
-          <div className="mb-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Available times
-            </p>
-            <h4 className="mt-1 text-lg font-semibold">
-              {selectedDate
-                ? format(selectedDate, 'EEEE, MMMM d')
-                : 'Choose an available date'}
-            </h4>
-            {mentorTimezone !== userTimezone && (
-              <div className="mt-1 flex items-center text-xs text-muted-foreground">
-                <Globe className="mr-1.5 h-3 w-3" />
-                Times shown in {userTimezone}
+                  return (
+                    <div key={day.toString()} className="flex min-h-0 items-center justify-center">
+                      <Button
+                        variant={selectedDate && isSameDay(day, selectedDate) ? 'default' : 'ghost'}
+                        className={cn(
+                          'h-8 w-8 rounded-full p-0 text-xs font-semibold sm:h-9 sm:w-9 sm:text-sm',
+                          !isDayInCurrentMonth && 'text-gray-300 dark:text-gray-600',
+                          isToday(day) && !isSameDay(day, selectedDate) && 'bg-blue-100/60 dark:bg-blue-900/30',
+                          selectedDate && isSameDay(day, selectedDate) && 'bg-blue-600 text-white hover:bg-blue-700',
+                          !isSelectable && 'cursor-not-allowed text-gray-400 opacity-50 line-through dark:text-gray-500',
+                          isSelectable && !isSameDay(day, selectedDate) && 'text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20'
+                        )}
+                        onClick={() => isSelectable && handleDateClick(day)}
+                        disabled={!isSelectable}
+                      >
+                        {format(day, 'd')}
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             )}
-          </div>
+          </CardContent>
+        </Card>
 
-          {!selectedDate ? (
-            <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed text-center text-muted-foreground">
-              <Calendar className="mb-3 h-8 w-8" />
-              <p className="text-sm font-medium">Pick a date to see times</p>
-              <p className="mt-1 text-xs">Only dates with availability are selectable.</p>
-            </div>
-          ) : (
-            <>
-              <div className="mb-3 grid grid-cols-3 gap-2">
-                {SLOT_PERIODS.map((period) => (
-                  <Button
-                    key={period.id}
-                    type="button"
-                    size="sm"
-                    variant={slotPeriod === period.id ? 'default' : 'outline'}
-                    onClick={() => {
-                      setSlotPeriod(period.id);
-                      setSlotPage(0);
-                    }}
-                    disabled={periodCounts[period.id] === 0}
-                    className="justify-between"
-                  >
-                    <span>{period.label}</span>
-                    <span className="text-[10px] opacity-70">
-                      {periodCounts[period.id]}
-                    </span>
-                  </Button>
-                ))}
-              </div>
-
-              <div className="flex-1 rounded-xl border p-3">
-                {dailyLoading ? (
-                  <div className="grid h-full grid-cols-3 gap-2">
-                    {[...Array(SLOT_PAGE_SIZE)].map((_, index) => (
-                      <Skeleton key={index} className="h-10 w-full" />
-                    ))}
-                  </div>
-                ) : dailySlots.length > 0 && periodSlots.length > 0 ? (
-                  <div className="grid h-full auto-rows-fr grid-cols-3 gap-2">
-                    {visibleSlots.map(({ slot, startDate }) => {
-                      const isSelected =
-                        selectedTimeSlot &&
-                        selectedTimeSlot.getTime() === startDate.getTime();
-
-                      return (
-                        <Button
-                          key={slot.startTime}
-                          variant={isSelected ? 'default' : 'outline'}
-                          onClick={() => handleTimeSlotSelection(slot)}
-                          className={cn(
-                            "h-10",
-                            isSelected && "bg-blue-600 hover:bg-blue-700"
-                          )}
-                        >
-                          {format(startDate, 'h:mm a')}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex h-full flex-col items-center justify-center text-center text-gray-500 dark:text-gray-400">
-                    <Clock className="mb-2 h-8 w-8" />
-                    <p className="text-sm font-medium">No slots in this period</p>
-                    <p className="text-xs">Try another time of day.</p>
+        <Card
+          className={cn(
+            'h-full min-h-0 border-border/80',
+            mobilePanel !== 'time' && 'hidden lg:block'
+          )}
+        >
+          <CardContent className="flex h-full min-h-0 flex-col p-3">
+            <div className="mb-2 shrink-0">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    Available times
+                  </p>
+                  <h4 className="mt-0.5 text-base font-semibold">
+                    {selectedDate
+                      ? format(selectedDate, 'EEEE, MMMM d')
+                      : 'Choose an available date'}
+                  </h4>
+                </div>
+                {mentorTimezone !== userTimezone && (
+                  <div className="flex items-center text-[11px] text-muted-foreground">
+                    <Globe className="mr-1 h-3 w-3" />
+                    {userTimezone}
                   </div>
                 )}
               </div>
+            </div>
 
-              <div className="mt-3 flex items-center justify-between gap-3 border-t pt-3">
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      setSlotPage((current) =>
-                        clampSlotPage(
-                          current - 1,
-                          periodSlots.length,
-                          SLOT_PAGE_SIZE
-                        )
-                      )
-                    }
-                    disabled={normalizedSlotPage === 0 || periodSlots.length === 0}
-                  >
-                    Prev
-                  </Button>
-                  <span className="text-xs text-muted-foreground">
-                    {normalizedSlotPage + 1} / {totalSlotPages}
-                  </span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      setSlotPage((current) =>
-                        clampSlotPage(
-                          current + 1,
-                          periodSlots.length,
-                          SLOT_PAGE_SIZE
-                        )
-                      )
-                    }
-                    disabled={normalizedSlotPage >= totalSlotPages - 1}
-                  >
-                    Next
-                  </Button>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  {selectedTimeSlot && (
-                    <span className="hidden text-xs font-medium text-blue-700 dark:text-blue-300 sm:inline">
-                      {format(selectedTimeSlot, 'h:mm a')} selected
-                    </span>
-                  )}
-                  <Button onClick={handleConfirm} disabled={!selectedTimeSlot}>
-                    Continue
-                  </Button>
-                </div>
+            {!selectedDate ? (
+              <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed text-center text-muted-foreground">
+                <Calendar className="mb-2 h-7 w-7" />
+                <p className="text-sm font-medium">Pick a date to see times</p>
+                <p className="mt-1 text-xs">Only available dates can be selected.</p>
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            ) : (
+              <>
+                <div className="mb-2 grid shrink-0 grid-cols-3 gap-2">
+                  {SLOT_PERIODS.map((period) => (
+                    <Button
+                      key={period.id}
+                      type="button"
+                      size="sm"
+                      variant={slotPeriod === period.id ? 'default' : 'outline'}
+                      onClick={() => {
+                        setSlotPeriod(period.id);
+                        setSlotPage(0);
+                      }}
+                      disabled={periodCounts[period.id] === 0}
+                      className="h-8 justify-between px-2 text-xs"
+                    >
+                      <span>{period.label}</span>
+                      <span className="text-[10px] opacity-70">
+                        {periodCounts[period.id]}
+                      </span>
+                    </Button>
+                  ))}
+                </div>
+
+                <div className="min-h-0 flex-1 rounded-xl border p-2">
+                  {dailyLoading ? (
+                    <div className="grid grid-cols-3 content-start gap-2">
+                      {[...Array(SLOT_PAGE_SIZE)].map((_, index) => (
+                        <Skeleton key={index} className="h-9 w-full" />
+                      ))}
+                    </div>
+                  ) : dailySlots.length > 0 && periodSlots.length > 0 ? (
+                    <div className="grid grid-cols-3 content-start gap-2">
+                      {visibleSlots.map(({ slot, startDate }) => {
+                        const isSelected =
+                          selectedTimeSlot &&
+                          selectedTimeSlot.getTime() === startDate.getTime();
+
+                        return (
+                          <Button
+                            key={slot.startTime}
+                            variant={isSelected ? 'default' : 'outline'}
+                            onClick={() => handleTimeSlotSelection(slot)}
+                            className={cn(
+                              'h-9 px-2 text-xs sm:text-sm',
+                              isSelected && 'bg-blue-600 hover:bg-blue-700'
+                            )}
+                          >
+                            {format(startDate, 'h:mm a')}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground">
+                      <Clock className="mb-2 h-7 w-7" />
+                      <p className="text-sm font-medium">No slots in this period</p>
+                      <p className="text-xs">Try another time of day.</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-2 flex shrink-0 items-center justify-between gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    Page {normalizedSlotPage + 1} of {totalSlotPages}
+                  </span>
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2"
+                      onClick={() =>
+                        setSlotPage((current) =>
+                          clampSlotPage(current - 1, periodSlots.length, SLOT_PAGE_SIZE)
+                        )
+                      }
+                      disabled={normalizedSlotPage === 0 || periodSlots.length === 0}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      <span className="sr-only">Previous slot page</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2"
+                      onClick={() =>
+                        setSlotPage((current) =>
+                          clampSlotPage(current + 1, periodSlots.length, SLOT_PAGE_SIZE)
+                        )
+                      }
+                      disabled={normalizedSlotPage >= totalSlotPages - 1}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                      <span className="sr-only">Next slot page</span>
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-t border-border/70 bg-card/30 px-4">
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Selected session
+          </p>
+          <p className="truncate text-sm font-semibold">
+            {selectedTimeSlot
+              ? format(selectedTimeSlot, 'EEE, MMM d / h:mm a')
+              : selectedDate
+                ? `${format(selectedDate, 'EEE, MMM d')} / Select a time`
+                : 'Choose a date and time'}
+          </p>
+        </div>
+        <Button onClick={handleConfirm} disabled={!selectedTimeSlot} className="shrink-0 px-6">
+          Continue
+        </Button>
+      </div>
     </div>
   );
 }

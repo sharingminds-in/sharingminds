@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -21,9 +23,11 @@ import {
   Headphones,
   ArrowLeft,
   AlertCircle,
+  CreditCard,
+  Lock,
+  ShieldCheck,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { PaymentForm } from './PaymentForm';
 
 interface Mentor {
   id: string;
@@ -85,6 +89,7 @@ export function BookingConfirmation({
   aiSpecialCurrency = null,
 }: BookingConfirmationProps) {
   const [showPolicy, setShowPolicy] = useState(false);
+  const [policyAccepted, setPolicyAccepted] = useState(false);
   const mentorHourlyRateValue = mentor.hourlyRate ? Number(mentor.hourlyRate) : 0;
   const sessionHours = bookingData.duration / 60;
   const basePrice = mentorHourlyRateValue * sessionHours;
@@ -118,94 +123,93 @@ export function BookingConfirmation({
 
   return (
     <>
-      <div className="flex h-full flex-col px-5 pb-5 pt-2">
-        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
-          <Card className="overflow-hidden border-slate-200 dark:border-slate-800">
-            <div className="border-b border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
-              <div className="flex items-start justify-between gap-4">
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="grid min-h-0 flex-1 content-center gap-2 p-2 sm:gap-3 sm:p-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)] lg:p-4">
+          <Card className="h-fit overflow-hidden border-border/80">
+            <div className="border-b border-border/70 bg-muted/30 px-3 py-2 sm:px-4 sm:py-3">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-gray-400">
-                    Review & confirm
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Session topic
                   </p>
-                  <h3 className="mt-1 text-lg font-bold text-gray-900 dark:text-white">
+                  <h3 className="mt-0.5 line-clamp-1 text-base font-semibold text-foreground">
                     {bookingData.title}
                   </h3>
                 </div>
-                <div className="rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                <div className="shrink-0 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
                   {bookingData.duration} min
                 </div>
               </div>
             </div>
 
-            <CardContent className="space-y-4 p-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <span className="text-xs font-medium uppercase tracking-wider text-gray-400">
+            <CardContent className="space-y-2.5 p-3 sm:space-y-3 sm:p-4">
+              <div className="grid grid-cols-4 gap-2 sm:gap-3">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                     Date & time
                   </span>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  <p className="text-xs font-semibold text-foreground">
                     {format(bookingData.scheduledAt, 'MMM d, yyyy')}
                   </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-xs text-muted-foreground">
                     {format(bookingData.scheduledAt, 'h:mm a')}
                   </p>
                 </div>
 
-                <div className="space-y-1">
-                  <span className="text-xs font-medium uppercase tracking-wider text-gray-400">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                     Format
                   </span>
-                  <div className="flex items-center gap-2">
-                    <MeetingIcon className="h-4 w-4 text-gray-500" />
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  <div className="flex items-center gap-1.5">
+                    <MeetingIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                    <p className="text-xs font-semibold text-foreground">
                       {MEETING_TYPE_LABELS[bookingData.meetingType]}
                     </p>
                   </div>
                 </div>
-              </div>
 
-              <Separator />
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <span className="text-xs font-medium uppercase tracking-wider text-gray-400">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                     Session type
                   </span>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  <p className="text-xs font-semibold text-foreground">
                     {SESSION_TYPE_LABELS[bookingData.sessionType]}
                   </p>
                 </div>
 
-                <div className="space-y-1">
-                  <span className="text-xs font-medium uppercase tracking-wider text-gray-400">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                     Mentor
                   </span>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  <p className="truncate text-xs font-semibold text-foreground">
                     {mentor.fullName}
                   </p>
-                  <p className="text-xs text-gray-500">{mentor.title}</p>
+                  <p className="hidden truncate text-[11px] text-muted-foreground sm:block">{mentor.title}</p>
                 </div>
               </div>
 
               {bookingData.description && (
-                <div className="rounded-xl border bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-900/50 dark:text-slate-300">
-                  <p className="mb-1 text-xs font-medium uppercase tracking-wider text-slate-400">
-                    Additional details
-                  </p>
-                  <p className="line-clamp-3">{bookingData.description}</p>
-                </div>
+                <>
+                  <Separator />
+                  <div className="rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground">
+                    <p className="mb-1 text-[10px] font-medium uppercase tracking-wider">
+                      Additional details
+                    </p>
+                    <p className="line-clamp-1 sm:line-clamp-2">{bookingData.description}</p>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
 
-          <div className="grid content-start gap-4">
-            {(mentor.hourlyRate || isFreeSession || planTotal !== null) && (
-              <Card className="border-slate-200 dark:border-slate-800">
-                <CardContent className="space-y-3 p-4">
+          <Card className="h-fit border-border/80">
+            <CardContent className="space-y-3 p-3 sm:p-4">
+              {(mentor.hourlyRate || isFreeSession || planTotal !== null) && (
+                <div className="space-y-2.5">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Session cost</span>
+                    <span className="text-muted-foreground">Session cost</span>
                     <span
-                      className={hasAiPlanPricing ? 'text-slate-400 line-through' : 'font-medium'}
+                      className={hasAiPlanPricing ? 'text-muted-foreground line-through' : 'font-medium'}
                     >
                       {formatCurrency(
                         isFreeSession ? 0 : basePrice,
@@ -215,22 +219,22 @@ export function BookingConfirmation({
                   </div>
                   {hasAiPlanPricing && planTotal !== null && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">AI plan rate</span>
+                      <span className="text-muted-foreground">AI plan rate</span>
                       <span className="font-medium text-blue-600">
                         {formatCurrency(planTotal, displayCurrency)}
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Service fee</span>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Service fee</span>
                     <span className="font-medium">
                       {formatCurrency(0, displayCurrency)}
                     </span>
                   </div>
                   <Separator />
                   <div className="flex items-end justify-between">
-                    <span className="font-bold">Total</span>
-                    <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    <span className="text-sm font-semibold">Total</span>
+                    <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
                       {formatCurrency(displayTotal, displayCurrency)}
                     </span>
                   </div>
@@ -239,35 +243,63 @@ export function BookingConfirmation({
                       You save {formatCurrency(savings, displayCurrency)} with your plan rate
                     </p>
                   )}
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              )}
 
-            {bookingData.sessionType !== 'FREE' && <PaymentForm />}
+              {bookingData.sessionType !== 'FREE' && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      <CreditCard className="h-4 w-4 text-blue-600" />
+                      Secure checkout
+                    </div>
+                    <div className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
+                      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+                      Payment opens after confirmation and is collected by Razorpay.
+                    </div>
+                    <div className="flex items-center text-[11px] text-muted-foreground">
+                      <Lock className="mr-1.5 h-3 w-3" />
+                      Card, UPI, and wallet supported
+                    </div>
+                  </div>
+                </>
+              )}
 
-            <button
-              type="button"
-              onClick={() => setShowPolicy(true)}
-              className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left transition-colors hover:bg-amber-100 dark:border-amber-900/50 dark:bg-amber-950/20 dark:hover:bg-amber-950/30"
-            >
-              <AlertCircle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-500" />
-              <span>
-                <span className="block text-sm font-semibold text-amber-900 dark:text-amber-100">
-                  Cancellation policy
-                </span>
-                <span className="block text-xs text-amber-700 dark:text-amber-300/80">
-                  Review before confirming
-                </span>
-              </span>
-            </button>
-          </div>
+              <Separator />
+              <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-muted/30 px-4 py-3 text-center">
+                <div className="flex items-center justify-center gap-2.5">
+                  <Checkbox
+                    id="accept-cancellation-policy"
+                    checked={policyAccepted}
+                    onCheckedChange={(checked) => setPolicyAccepted(checked === true)}
+                    className="h-5 w-5 rounded-md border-2 border-muted-foreground/60 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600"
+                  />
+                  <Label
+                    htmlFor="accept-cancellation-policy"
+                    className="cursor-pointer text-sm font-semibold leading-none text-foreground"
+                  >
+                    I accept the cancellation policy
+                  </Label>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPolicy(true)}
+                  className="mt-2 flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                >
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  Review policy
+                </button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">
+        <div className="flex h-16 shrink-0 items-center justify-between border-t border-border/70 bg-card/30 px-4">
           <Button
             variant="ghost"
             onClick={onBack}
-            className="text-gray-500 hover:text-gray-900"
+            className="text-muted-foreground hover:text-foreground"
             disabled={isSubmitting}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -276,8 +308,8 @@ export function BookingConfirmation({
 
           <Button
             onClick={onConfirm}
-            disabled={isSubmitting}
-            className="bg-blue-600 px-8 text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700"
+            disabled={isSubmitting || !policyAccepted}
+            className="bg-blue-600 px-6 text-white transition-colors hover:bg-blue-700"
           >
             {isSubmitting ? (
               <div className="flex items-center gap-2">
