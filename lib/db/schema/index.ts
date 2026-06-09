@@ -29,6 +29,7 @@ export * from './livekit';
 export * from './mentee-profile-audit';
 export * from './mentors-form-audit-trail';
 export * from './mentors-profile-audit';
+export * from './mentor-pricing-audit';
 export * from './session-policies';
 export * from './session-audit-log';
 export * from './reschedule-requests';

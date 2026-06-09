@@ -47,6 +47,10 @@ export const adminGetMentorAuditInputSchema = z.object({
   mentorId: z.string().uuid('Invalid mentor identifier'),
 });
 
+export const adminGetMentorPricingHistoryInputSchema = z.object({
+  mentorId: z.string().uuid('Invalid mentor identifier'),
+});
+
 export const adminUpdateEnquiryInputSchema = z.object({
   enquiryId: z.string().uuid('Invalid enquiry identifier'),
   isResolved: z.boolean(),
@@ -161,6 +165,9 @@ export type AdminSendMentorCouponInput = z.infer<
 >;
 export type AdminGetMentorAuditInput = z.infer<
   typeof adminGetMentorAuditInputSchema
+>;
+export type AdminGetMentorPricingHistoryInput = z.infer<
+  typeof adminGetMentorPricingHistoryInputSchema
 >;
 export type AdminUpdateEnquiryInput = z.infer<
   typeof adminUpdateEnquiryInputSchema

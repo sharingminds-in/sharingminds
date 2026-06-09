@@ -28,6 +28,11 @@ vi.mock('@/hooks/queries/use-admin-queries', () => ({
     data: null,
     isLoading: false,
   }),
+  useAdminMentorPricingHistoryQuery: () => ({
+    data: [],
+    isLoading: false,
+    error: null,
+  }),
   useAdminUpdateMentorMutation: () => ({
     mutateAsync: vi.fn(),
   }),

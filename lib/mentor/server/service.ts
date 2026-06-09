@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import {
   mentors,
   mentorsFormAuditTrail,
+  mentorPricingAudit,
   mentorsProfileAudit,
   roles,
   userRoles,
@@ -19,6 +20,11 @@ import { sendApplicationReceivedEmail } from '@/lib/email';
 import { createNotificationRecord } from '@/lib/notifications/server/service';
 import { validateMentorCouponRedemption } from '@/lib/mentor/coupon-rules';
 import { buildMentorProfileUpdate } from '@/lib/mentor/profile-patch';
+import {
+  buildPricingAuditSnapshot,
+  hasMentorPricingChanged,
+  normalizePricingAuditAmount,
+} from '@/lib/mentor/pricing-audit';
 import { resolveMentorVerificationTransition } from '@/lib/mentor/verification-state-machine';
 import { normalizeStorageValue, resolveStorageUrl } from '@/lib/storage';
 
@@ -163,18 +169,43 @@ export async function updateMentorProfile(
   const resolvedUser = await getMentorLifecycleUser(userId, currentUser);
   assertSameUserOrAdmin(resolvedUser, userId);
 
-  const mentor = await getMentorByUserId(userId);
-  assertMentorLifecycle(mentor, 404, 'Mentor profile not found');
-
   const parsed = mentorProfileUpdateInputSchema.parse(input);
-  const previousProfileSnapshot = serializeMentorRecord(mentor);
-  const mentorUpdateData = buildMentorProfileUpdate(mentor, parsed);
+  const { previousMentor, updatedMentor } = await db.transaction(async (tx) => {
+    const [mentor] = await tx
+      .select()
+      .from(mentors)
+      .where(eq(mentors.userId, userId))
+      .limit(1);
 
-  const [updatedMentor] = await db
-    .update(mentors)
-    .set(mentorUpdateData)
-    .where(eq(mentors.userId, userId))
-    .returning();
+    assertMentorLifecycle(mentor, 404, 'Mentor profile not found');
+
+    const mentorUpdateData = buildMentorProfileUpdate(mentor, parsed);
+    const [updated] = await tx
+      .update(mentors)
+      .set(mentorUpdateData)
+      .where(eq(mentors.userId, userId))
+      .returning();
+
+    if (hasMentorPricingChanged(mentor, updated)) {
+      await tx.insert(mentorPricingAudit).values({
+        mentorId: updated.id,
+        actorUserId: resolvedUser.id,
+        actorRole: resolvedUser.id === userId ? 'mentor' : 'admin',
+        action:
+          normalizePricingAuditAmount(mentor.hourlyRate) === null
+            ? 'MENTOR_RATE_SET'
+            : 'MENTOR_RATE_UPDATED',
+        ...buildPricingAuditSnapshot(mentor, updated),
+      });
+    }
+
+    return {
+      previousMentor: mentor,
+      updatedMentor: updated,
+    };
+  });
+
+  const previousProfileSnapshot = serializeMentorRecord(previousMentor);
 
   try {
     await db.insert(mentorsProfileAudit).values({
@@ -304,11 +335,28 @@ export async function submitMentorApplication(
   };
 
   if (existingMentor) {
-    const [updatedMentor] = await db
-      .update(mentors)
-      .set(mentorProfileData)
-      .where(eq(mentors.id, existingMentor.id))
-      .returning({ id: mentors.id });
+    const updatedMentor = await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(mentors)
+        .set(mentorProfileData)
+        .where(eq(mentors.id, existingMentor.id))
+        .returning();
+
+      if (hasMentorPricingChanged(existingMentor, updated)) {
+        await tx.insert(mentorPricingAudit).values({
+          mentorId: updated.id,
+          actorUserId: parsed.userId,
+          actorRole: 'mentor',
+          action:
+            normalizePricingAuditAmount(existingMentor.hourlyRate) === null
+              ? 'MENTOR_RATE_SET'
+              : 'MENTOR_RATE_UPDATED',
+          ...buildPricingAuditSnapshot(existingMentor, updated),
+        });
+      }
+
+      return updated;
+    });
 
     await recordAuditEntry(existingMentor.id, 'UPDATE');
 
@@ -335,14 +383,33 @@ export async function submitMentorApplication(
   }
 
   const mentorId = randomUUID();
-  const [newMentor] = await db
-    .insert(mentors)
-    .values({
-      ...mentorProfileData,
-      id: mentorId,
-      verificationStatus: 'IN_PROGRESS',
-    })
-    .returning();
+  const newMentor = await db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(mentors)
+      .values({
+        ...mentorProfileData,
+        id: mentorId,
+        verificationStatus: 'IN_PROGRESS',
+      })
+      .returning();
+
+    await tx.insert(mentorPricingAudit).values({
+      mentorId: created.id,
+      actorUserId: parsed.userId,
+      actorRole: 'mentor',
+      action: 'MENTOR_RATE_SET',
+      ...buildPricingAuditSnapshot(
+        {
+          mentorHourlyRate: null,
+          adminHourlyRateOverride: null,
+          currency: created.currency,
+        },
+        created
+      ),
+    });
+
+    return created;
+  });
 
   await recordAuditEntry(newMentor.id, 'CREATE');
   await assignMentorRole(parsed.userId);

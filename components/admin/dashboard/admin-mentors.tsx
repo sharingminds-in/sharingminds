@@ -49,6 +49,7 @@ import {
   MessageSquare,
   Crown,
   DollarSign,
+  History,
   Send,
   Search,
 } from 'lucide-react';
@@ -60,6 +61,7 @@ import {
   type AdminMentorItem,
   useAdminMentorAuditQuery,
   useAdminMentorsQuery,
+  useAdminMentorPricingHistoryQuery,
   useAdminSendMentorCouponMutation,
   useAdminUpdateMentorMutation,
   useAdminUpdateMentorPricingMutation,
@@ -123,6 +125,20 @@ const pendingStatuses: VerificationStatus[] = [
 ];
 
 const EMPTY_MENTORS: Mentor[] = [];
+
+const pricingActionCopy: Record<string, string> = {
+  MENTOR_RATE_SET: 'Mentor rate set',
+  MENTOR_RATE_UPDATED: 'Mentor rate updated',
+  ADMIN_OVERRIDE_UPDATED: 'Admin override updated',
+  ADMIN_OVERRIDE_CLEARED: 'Admin override cleared',
+};
+
+function formatPricingHistoryRate(
+  value: string | number | null,
+  currency: string
+) {
+  return value === null ? 'None' : `${currency} ${value}/hr`;
+}
 
 function buildMentorToggleMap(
   mentors: Mentor[],
@@ -253,6 +269,10 @@ export function AdminMentors() {
   );
   const auditData = auditQuery.data ?? null;
   const isAuditLoading = auditQuery.isLoading;
+  const pricingHistoryQuery = useAdminMentorPricingHistoryQuery(
+    selectedMentor?.id
+  );
+  const pricingHistory = pricingHistoryQuery.data ?? [];
 
   const filteredMentors = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -916,6 +936,124 @@ export function AdminMentors() {
     );
   };
 
+  const renderPricingHistory = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle className='flex items-center gap-2 text-base'>
+          <History className='h-4 w-4' />
+          Pricing history
+        </CardTitle>
+        <CardDescription>
+          Immutable mentor and admin rate changes, newest first.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {pricingHistoryQuery.isLoading ? (
+          <div className='flex items-center gap-2 py-6 text-sm text-muted-foreground'>
+            <Loader2 className='h-4 w-4 animate-spin' />
+            Loading pricing history...
+          </div>
+        ) : pricingHistoryQuery.error ? (
+          <p className='py-6 text-sm text-red-600'>
+            Unable to load pricing history.
+          </p>
+        ) : pricingHistory.length === 0 ? (
+          <p className='py-6 text-sm text-muted-foreground'>
+            No dedicated pricing changes have been recorded yet.
+          </p>
+        ) : (
+          <div className='space-y-3'>
+            {pricingHistory.map((entry) => (
+              <div
+                key={entry.id}
+                className='rounded-lg border border-border/70 p-4'
+              >
+                <div className='flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between'>
+                  <div className='space-y-1'>
+                    <Badge variant='outline'>
+                      {pricingActionCopy[entry.action] ?? entry.action}
+                    </Badge>
+                    <p className='text-sm font-medium'>
+                      {entry.actorName ||
+                        entry.actorEmail ||
+                        'Deleted user'}
+                    </p>
+                    <p className='text-xs capitalize text-muted-foreground'>
+                      {entry.actorRole}
+                      {entry.actorEmail && entry.actorName
+                        ? ` - ${entry.actorEmail}`
+                        : ''}
+                    </p>
+                  </div>
+                  <p className='text-xs text-muted-foreground'>
+                    {format(new Date(entry.createdAt), 'PPp')}
+                  </p>
+                </div>
+
+                <div className='mt-4 grid gap-3 text-sm md:grid-cols-3'>
+                  <div>
+                    <p className='text-xs text-muted-foreground'>
+                      Mentor rate
+                    </p>
+                    <p>
+                      {formatPricingHistoryRate(
+                        entry.previousMentorRate,
+                        entry.currency
+                      )}{' '}
+                      -&gt;{' '}
+                      {formatPricingHistoryRate(
+                        entry.newMentorRate,
+                        entry.currency
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className='text-xs text-muted-foreground'>
+                      Admin override
+                    </p>
+                    <p>
+                      {formatPricingHistoryRate(
+                        entry.previousAdminOverride,
+                        entry.currency
+                      )}{' '}
+                      -&gt;{' '}
+                      {formatPricingHistoryRate(
+                        entry.newAdminOverride,
+                        entry.currency
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className='text-xs text-muted-foreground'>
+                      Effective rate
+                    </p>
+                    <p className='font-semibold text-primary'>
+                      {formatPricingHistoryRate(
+                        entry.previousEffectiveRate,
+                        entry.currency
+                      )}{' '}
+                      -&gt;{' '}
+                      {formatPricingHistoryRate(
+                        entry.newEffectiveRate,
+                        entry.currency
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                {entry.reason && (
+                  <p className='mt-3 rounded-md bg-muted/50 p-2 text-xs text-muted-foreground'>
+                    Reason: {entry.reason}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   const noteDialogMentor = noteDialog
     ? mentors.find((mentor) => mentor.id === noteDialog.mentorId) ?? null
     : null;
@@ -1155,6 +1293,7 @@ export function AdminMentors() {
                     </DialogDescription>
                   </DialogHeader>
                   <MentorAuditView previousData={auditData.previousData} updatedData={auditData.updatedData} />
+                  {renderPricingHistory()}
                 </>
               ) : (
                 <>
@@ -1381,6 +1520,8 @@ export function AdminMentors() {
                       </div>
                     </CardContent>
                   </Card>
+
+                  {renderPricingHistory()}
 
                   <section
                     aria-labelledby='mentor-summary-heading'

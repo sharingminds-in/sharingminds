@@ -11,7 +11,12 @@ export type AdminEnquiryItem = RouterOutputs['admin']['listEnquiries'][number];
 export type AdminPolicyRecord = RouterOutputs['admin']['getPolicies']['policies'][number];
 export type GroupedAdminPolicies = RouterOutputs['admin']['getPolicies']['grouped'];
 export type AdminMentorAudit = RouterOutputs['admin']['getMentorAudit'];
-export type AdminUpdateMentorInput = RouterInputs['admin']['updateMentor'];
+export type AdminMentorPricingHistory =
+  RouterOutputs['admin']['getMentorPricingHistory'];
+export type AdminUpdateMentorInput = Exclude<
+  RouterInputs['admin']['updateMentor'],
+  void
+>;
 export interface AdminUpdateMentorPricingInput {
   mentorId: string;
   adminHourlyRateOverride: number | null;
@@ -25,8 +30,10 @@ export type AdminPromoteAdminUserInput =
   RouterInputs['admin']['promoteAdminUser'];
 export type AdminAccessPolicyConfig =
   RouterOutputs['admin']['getAccessPolicyConfig'];
-export type AdminAccessPolicyDraftInput =
-  RouterInputs['admin']['upsertAccessPolicyDraft'];
+export type AdminAccessPolicyDraftInput = Exclude<
+  RouterInputs['admin']['upsertAccessPolicyDraft'],
+  void
+>;
 export type AdminAccessPolicyOverrides =
   AdminAccessPolicyDraftInput['overrides'];
 
@@ -36,6 +43,8 @@ export const adminKeys = {
   mentors: () => ['admin', 'mentors'] as const,
   users: () => ['admin', 'users'] as const,
   mentorAudit: (mentorId: string) => ['admin', 'mentor-audit', mentorId] as const,
+  mentorPricingHistory: (mentorId: string) =>
+    ['admin', 'mentor-pricing-history', mentorId] as const,
   mentees: () => ['admin', 'mentees'] as const,
   enquiries: () => ['admin', 'enquiries'] as const,
   policies: () => ['admin', 'policies'] as const,
@@ -49,9 +58,14 @@ async function invalidateAdminQueries(
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: adminKeys.all }),
     mentorId
-      ? queryClient.invalidateQueries({
-          queryKey: adminKeys.mentorAudit(mentorId),
-        })
+      ? Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: adminKeys.mentorAudit(mentorId),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: adminKeys.mentorPricingHistory(mentorId),
+          }),
+        ])
       : Promise.resolve(),
   ]);
 }
@@ -96,6 +110,23 @@ export function useAdminMentorAuditQuery(mentorId: string | null | undefined) {
     queryKey: adminKeys.mentorAudit(mentorId!),
     queryFn: () =>
       trpcClient.admin.getMentorAudit.query({
+        mentorId: mentorId!,
+      }),
+    enabled: Boolean(mentorId),
+    staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+}
+
+export function useAdminMentorPricingHistoryQuery(
+  mentorId: string | null | undefined
+) {
+  const trpcClient = useTRPCClient();
+
+  return useQuery({
+    queryKey: adminKeys.mentorPricingHistory(mentorId!),
+    queryFn: () =>
+      trpcClient.admin.getMentorPricingHistory.query({
         mentorId: mentorId!,
       }),
     enabled: Boolean(mentorId),

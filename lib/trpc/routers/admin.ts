@@ -13,6 +13,7 @@ import {
   createAdminMentorUser,
   createAdminUser,
   getAdminMentorAudit,
+  getAdminMentorPricingHistory,
   getAdminOverview,
   getAdminPolicies,
   listAdminEnquiries,
@@ -31,6 +32,7 @@ import {
   adminCreateMentorUserInputSchema,
   adminCreateAdminUserInputSchema,
   adminGetMentorAuditInputSchema,
+  adminGetMentorPricingHistoryInputSchema,
   adminPromoteAdminUserInputSchema,
   adminSendMentorCouponInputSchema,
   adminUpdateEnquiryInputSchema,
@@ -123,6 +125,15 @@ export const adminRouter = createTRPCRouter({
         return await getAdminMentorAudit(ctx as never, input);
       } catch (error) {
         throwAsTRPCError(error, 'Failed to fetch mentor audit history');
+      }
+    }),
+  getMentorPricingHistory: adminProcedure
+    .input(adminGetMentorPricingHistoryInputSchema)
+    .query(async ({ ctx, input }) => {
+      try {
+        return await getAdminMentorPricingHistory(ctx as never, input);
+      } catch (error) {
+        throwAsTRPCError(error, 'Failed to fetch mentor pricing history');
       }
     }),
   listMentees: adminProcedure.query(async ({ ctx }) => {

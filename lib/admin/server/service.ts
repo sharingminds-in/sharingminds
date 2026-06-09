@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import {
   contactSubmissions,
   mentors,
+  mentorPricingAudit,
   mentorsProfileAudit,
   mentees,
   roles,
@@ -28,6 +29,10 @@ import {
 } from '@/lib/email';
 import { createNotificationRecord } from '@/lib/notifications/server/service';
 import { logAdminAction } from '@/lib/db/audit';
+import {
+  buildPricingAuditSnapshot,
+  hasAdminPricingOverrideChanged,
+} from '@/lib/mentor/pricing-audit';
 import {
   ADMIN_SESSION_ACTIONS,
   logAdminSessionAction,
@@ -52,6 +57,7 @@ import {
   adminCreateMentorUserInputSchema,
   adminCreateAdminUserInputSchema,
   adminGetMentorAuditInputSchema,
+  adminGetMentorPricingHistoryInputSchema,
   adminPromoteAdminUserInputSchema,
   adminSendMentorCouponInputSchema,
   adminUpdateEnquiryInputSchema,
@@ -60,6 +66,7 @@ import {
   adminUpdatePoliciesInputSchema,
   type AdminCreateMentorUserInput,
   type AdminCreateAdminUserInput,
+  type AdminGetMentorPricingHistoryInput,
   type AdminPromoteAdminUserInput,
   type AdminSendMentorCouponInput,
   type AdminUpdateEnquiryInput,
@@ -897,34 +904,75 @@ export async function updateAdminMentorPricing(
 
   const hasOverride = parsed.adminHourlyRateOverride !== null;
   const reason = hasOverride ? parsed.reason?.trim() || null : null;
+  const nextOverride = hasOverride
+    ? parsed.adminHourlyRateOverride.toFixed(2)
+    : null;
+  const previousPricing = {
+    mentorHourlyRate: existingMentor.hourlyRate,
+    adminHourlyRateOverride: existingMentor.adminHourlyRateOverride,
+    currency: existingMentor.currency,
+  };
+  const nextPricing = {
+    mentorHourlyRate: existingMentor.hourlyRate,
+    adminHourlyRateOverride: nextOverride,
+    currency: existingMentor.currency,
+  };
+  const overrideChanged = hasAdminPricingOverrideChanged(
+    previousPricing,
+    nextPricing
+  );
+  const changedAt = new Date();
 
-  await database
-    .update(mentors)
-    .set({
-      adminHourlyRateOverride: hasOverride
-        ? parsed.adminHourlyRateOverride.toFixed(2)
-        : null,
-      rateOverrideReason: reason,
-      rateOverriddenAt: hasOverride ? new Date() : null,
-      rateOverriddenBy: hasOverride ? actor.id : null,
-      updatedAt: new Date(),
-    })
-    .where(eq(mentors.id, parsed.mentorId));
+  await database.transaction(async (transaction) => {
+    await transaction
+      .update(mentors)
+      .set({
+        adminHourlyRateOverride: nextOverride,
+        rateOverrideReason: reason,
+        rateOverriddenAt: overrideChanged
+          ? hasOverride
+            ? changedAt
+            : null
+          : existingMentor.rateOverriddenAt,
+        rateOverriddenBy: overrideChanged
+          ? hasOverride
+            ? actor.id
+            : null
+          : existingMentor.rateOverriddenBy,
+        updatedAt: changedAt,
+      })
+      .where(eq(mentors.id, parsed.mentorId));
 
-  await logAdminAction({
-    adminId: actor.id,
-    action: hasOverride
-      ? 'MENTOR_SESSION_RATE_OVERRIDE_UPDATED'
-      : 'MENTOR_SESSION_RATE_OVERRIDE_CLEARED',
-    targetId: existingMentor.userId,
-    targetType: 'mentor',
-    details: {
-      previousOverride: existingMentor.adminHourlyRateOverride,
-      newOverride: parsed.adminHourlyRateOverride,
-      reason,
-      currency: existingMentor.currency,
-    },
+    if (overrideChanged) {
+      await transaction.insert(mentorPricingAudit).values({
+        mentorId: existingMentor.id,
+        actorUserId: actor.id,
+        actorRole: 'admin',
+        action: hasOverride
+          ? 'ADMIN_OVERRIDE_UPDATED'
+          : 'ADMIN_OVERRIDE_CLEARED',
+        reason,
+        ...buildPricingAuditSnapshot(previousPricing, nextPricing),
+      });
+    }
   });
+
+  if (overrideChanged) {
+    await logAdminAction({
+      adminId: actor.id,
+      action: hasOverride
+        ? 'MENTOR_SESSION_RATE_OVERRIDE_UPDATED'
+        : 'MENTOR_SESSION_RATE_OVERRIDE_CLEARED',
+      targetId: existingMentor.userId,
+      targetType: 'mentor',
+      details: {
+        previousOverride: existingMentor.adminHourlyRateOverride,
+        newOverride: parsed.adminHourlyRateOverride,
+        reason,
+        currency: existingMentor.currency,
+      },
+    });
+  }
 
   return {
     mentor: await getFormattedMentorById(context, parsed.mentorId),
@@ -1028,6 +1076,45 @@ export async function getAdminMentorAudit(
   );
 
   return latestAudit;
+}
+
+export async function getAdminMentorPricingHistory(
+  context: AdminServiceContext,
+  input: AdminGetMentorPricingHistoryInput
+) {
+  await getAdminActor(context);
+  const parsed = adminGetMentorPricingHistoryInputSchema.parse(input);
+  const database = getAdminDb(context);
+
+  const rows = await database
+    .select({
+      id: mentorPricingAudit.id,
+      mentorId: mentorPricingAudit.mentorId,
+      actorUserId: mentorPricingAudit.actorUserId,
+      actorName: users.name,
+      actorEmail: users.email,
+      actorRole: mentorPricingAudit.actorRole,
+      action: mentorPricingAudit.action,
+      previousMentorRate: mentorPricingAudit.previousMentorRate,
+      newMentorRate: mentorPricingAudit.newMentorRate,
+      previousAdminOverride: mentorPricingAudit.previousAdminOverride,
+      newAdminOverride: mentorPricingAudit.newAdminOverride,
+      previousEffectiveRate: mentorPricingAudit.previousEffectiveRate,
+      newEffectiveRate: mentorPricingAudit.newEffectiveRate,
+      currency: mentorPricingAudit.currency,
+      reason: mentorPricingAudit.reason,
+      createdAt: mentorPricingAudit.createdAt,
+    })
+    .from(mentorPricingAudit)
+    .leftJoin(users, eq(mentorPricingAudit.actorUserId, users.id))
+    .where(eq(mentorPricingAudit.mentorId, parsed.mentorId))
+    .orderBy(desc(mentorPricingAudit.createdAt))
+    .limit(100);
+
+  return rows.map((row) => ({
+    ...row,
+    createdAt: row.createdAt.toISOString(),
+  }));
 }
 
 export async function listAdminMentees(context: AdminServiceContext) {
