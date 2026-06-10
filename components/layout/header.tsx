@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { Menu, Search, Settings, LogOut, SunMoon, MoreVertical, User, UserPlus } from "lucide-react"
+import { ChevronDown, Infinity, LogOut, Menu, MoreVertical, Search, Settings, Sparkles, SunMoon, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RadialThemeToggle } from "@/components/providers/radial-theme-toggle"
 import { SidebarTrigger } from "@/components/ui/sidebar"
@@ -26,16 +26,18 @@ interface HeaderProps {
   isDashboard?: boolean
 }
 
-const NAV_LINKS = [
-  { label: "How it works", href: "#" },
-  { label: "Library", href: "#" },
-  { label: "Pricing", href: "#" },
+const LANDING_NAV_LINKS = [
+  { label: "For Individuals", href: "#how-it-works", hasMenu: true },
+  { label: "For Businesses", href: "#professionals", hasMenu: true },
+  { label: "Experts", href: "#experts" },
+  { label: "Resources", href: "#resources", hasMenu: true },
+  { label: "Pricing", href: "#pricing" },
 ]
 
 export function Header({ onSearchClick, showSidebarTrigger = false, isDashboard = false }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const { signOut: authSignOut, isAuthenticated, isMentor: authIsMentor, isLoading, user } = useAuth()
+  const { signOut: authSignOut, isAuthenticated, isMentor: authIsMentor, isLoading } = useAuth()
   const [isScrolled, setIsScrolled] = useState(false)
   const [showSignInPopup, setShowSignInPopup] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -76,30 +78,18 @@ export function Header({ onSearchClick, showSidebarTrigger = false, isDashboard 
     : "bg-background/95 backdrop-blur-sm border-b border-transparent"
     }`
 
-  const NavLinks = () => (
-    <nav className="hidden lg:flex space-x-8">
-      {NAV_LINKS.map((link) => (
+  const MobileNavLinks = () => (
+    <div className="flex flex-col gap-1 text-sm text-slate-600">
+      {LANDING_NAV_LINKS.map((link) => (
         <a
           key={link.label}
           href={link.href}
-          className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
-        >
-          {link.label}
-        </a>
-      ))}
-    </nav>
-  )
-
-  const MobileNavLinks = () => (
-    <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-      {NAV_LINKS.map((link) => (
-        <button
-          key={link.label}
-          className="text-left hover:text-foreground"
+          className="flex items-center justify-between rounded-xl px-3 py-3 text-left font-medium hover:bg-indigo-50 hover:text-indigo-700"
           onClick={() => setIsMobileMenuOpen(false)}
         >
-          {link.label}
-        </button>
+          <span>{link.label}</span>
+          {link.hasMenu && <ChevronDown className="h-4 w-4" />}
+        </a>
       ))}
     </div>
   )
@@ -119,56 +109,84 @@ export function Header({ onSearchClick, showSidebarTrigger = false, isDashboard 
   if (isLanding) {
     return (
       <>
-        <header className={`${headerClasses} flex items-center justify-between gap-3 px-4 h-16 sm:h-20 sm:px-8 lg:px-12 xl:px-16`}>
-          <div className="flex min-w-0 flex-1 items-center gap-4 sm:gap-8">
-            <div
-              className="text-lg sm:text-xl lg:text-2xl font-bold cursor-pointer hover:text-blue-500 transition-colors"
+        <header
+          className={`fixed inset-x-0 top-0 z-50 h-[76px] border-b transition-all duration-300 ${
+            isScrolled
+              ? "border-slate-200/80 bg-white/92 shadow-[0_12px_35px_rgba(37,32,82,0.08)] backdrop-blur-xl"
+              : "border-transparent bg-white/88 backdrop-blur-md"
+          }`}
+        >
+          <div className="mx-auto flex h-full max-w-[1480px] items-center justify-between gap-5 px-4 sm:px-6 lg:px-8">
+            <button
+              type="button"
+              className="flex shrink-0 items-center gap-2 text-slate-950"
               onClick={handleLogoClick}
+              aria-label="SharingMinds home"
             >
-              Sharing<span className="text-blue-500">Minds</span>
-            </div>
-            <NavLinks />
-          </div>
+              <span className="flex h-9 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 text-white shadow-[0_8px_20px_rgba(79,70,229,0.22)]">
+                <Infinity className="h-7 w-7 stroke-[2.6]" />
+              </span>
+              <span className="text-xl font-bold tracking-[-0.04em] sm:text-2xl">
+                sharingminds
+              </span>
+            </button>
 
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <nav className="hidden items-center gap-8 xl:flex">
+              {LANDING_NAV_LINKS.map((link) => (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  className="group flex items-center gap-1.5 text-[15px] font-medium text-slate-800 transition-colors hover:text-indigo-700"
+                >
+                  {link.label}
+                  {link.hasMenu && (
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200 group-hover:translate-y-0.5" />
+                  )}
+                </a>
+              ))}
+            </nav>
+
+            <div className="flex shrink-0 items-center gap-2.5">
             {isLoading ? (
               <>
-                <Skeleton className="h-8 w-20 rounded-md" />
-                <Skeleton className="h-8 w-8 rounded-full" />
+                <Skeleton className="h-11 w-24 rounded-xl" />
+                <Skeleton className="h-11 w-36 rounded-xl" />
               </>
             ) : isAuthenticated ? (
               <>
-                <div className="hidden lg:flex items-center gap-2 sm:gap-3">
-                  <Button variant="default" size="sm" className="font-semibold" onClick={handleGoToDashboard}>
+                <div className="hidden items-center gap-2.5 xl:flex">
+                  <Button className="h-11 rounded-xl px-5 font-semibold" onClick={handleGoToDashboard}>
                     Go to dashboard
                   </Button>
                   {!isMentor && (
                     <Button
                       variant="outline"
-                      size="sm"
-                      className="font-semibold border-green-500 text-green-600 hover:bg-green-50"
+                      className="h-11 rounded-xl px-5 font-semibold"
                       onClick={() => router.push("/become-expert")}
                     >
                       Become an Expert
                     </Button>
                   )}
-                  <RadialThemeToggle />
-                  <Button variant="outline" size="sm" onClick={handleAuthClick}>
+                  <Button variant="ghost" className="h-11 rounded-xl px-4" onClick={handleAuthClick}>
                     Logout
                   </Button>
                 </div>
-                {/* Mobile Menu for Landing */}
-                <div className="flex items-center gap-2 lg:hidden">
-                  <Button variant="default" size="sm" className="font-semibold" onClick={handleGoToDashboard}>
+                <div className="flex items-center gap-2 xl:hidden">
+                  <Button size="sm" className="font-semibold" onClick={handleGoToDashboard}>
                     Go to dashboard
                   </Button>
                   <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                     <SheetTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label="Open menu" className="lg:hidden">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Open menu"
+                        className="text-slate-900 hover:bg-indigo-50 hover:text-indigo-700 lg:hidden"
+                      >
                         <Menu className="h-5 w-5" />
                       </Button>
                     </SheetTrigger>
-                    <SheetContent side="right" className="w-80 sm:w-96">
+                    <SheetContent side="right" className="w-80 bg-white text-slate-900 sm:w-96">
                       <SheetHeader>
                         <SheetTitle>SharingMinds</SheetTitle>
                       </SheetHeader>
@@ -194,59 +212,69 @@ export function Header({ onSearchClick, showSidebarTrigger = false, isDashboard 
               </>
             ) : (
               <>
-                <div className="hidden lg:flex items-center gap-2 sm:gap-3">
-                  <RadialThemeToggle />
-                  <Button
-                    size="sm"
-                    className="bg-amber-100 text-gray-900 hover:bg-amber-200 dark:bg-amber-200 dark:text-gray-900 dark:hover:bg-amber-300 px-4"
-                    onClick={handleAuthClick}
-                  >
-                    Login / Sign Up
-                  </Button>
+                <div className="hidden items-center gap-3 xl:flex">
                   <Button
                     variant="outline"
-                    size="sm"
-                    className="font-semibold border-green-500 text-green-600 hover:bg-green-50"
-                    onClick={() => router.push("/become-expert")}
-                  >
-                    Become an Expert
-                  </Button>
-                </div>
-                {/* Mobile Menu for Landing (Guest) */}
-                <div className="flex items-center gap-2 lg:hidden">
-                  <Button
-                    size="sm"
-                    className="bg-amber-100 text-gray-900 hover:bg-amber-200 dark:bg-amber-200 dark:text-gray-900 dark:hover:bg-amber-300 px-4"
+                    className="h-12 rounded-xl border-slate-200 bg-white px-6 text-[15px] font-semibold text-slate-900 shadow-sm hover:border-indigo-200 hover:bg-indigo-50"
                     onClick={handleAuthClick}
                   >
-                    Login / Sign Up
+                    Log in
+                  </Button>
+                  <a
+                    href="#infinity-chat"
+                    className="inline-flex h-12 items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 text-[15px] font-semibold text-white shadow-[0_12px_28px_rgba(79,70,229,0.24)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(79,70,229,0.3)]"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Talk to Infinity
+                  </a>
+                </div>
+                <div className="flex items-center gap-2 xl:hidden">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="hidden border-slate-200 bg-white text-slate-900 sm:inline-flex"
+                    onClick={handleAuthClick}
+                  >
+                    Log in
                   </Button>
                   <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                     <SheetTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label="Open menu" className="lg:hidden">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Open menu"
+                        className="text-slate-900 hover:bg-indigo-50 hover:text-indigo-700"
+                      >
                         <Menu className="h-5 w-5" />
                       </Button>
                     </SheetTrigger>
-                    <SheetContent side="right" className="w-80 sm:w-96">
+                    <SheetContent side="right" className="w-80 bg-white text-slate-900 sm:w-96">
                       <SheetHeader>
                         <SheetTitle>SharingMinds</SheetTitle>
                       </SheetHeader>
                       <div className="mt-4 flex flex-col gap-3">
                         <MobileNavLinks />
                         <div className="h-px w-full bg-border" />
-                        <Button variant="default" onClick={() => { handleAuthClick(); setIsMobileMenuOpen(false) }}>
-                          Login / Sign Up
+                        <Button variant="outline" onClick={() => { handleAuthClick(); setIsMobileMenuOpen(false) }}>
+                          Log in
                         </Button>
-                        <Button variant="outline" onClick={() => { router.push("/become-expert"); setIsMobileMenuOpen(false) }}>
-                          Become an Expert
+                        <Button
+                          onClick={() => {
+                            setIsMobileMenuOpen(false)
+                            window.location.hash = "infinity-chat"
+                          }}
+                          className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white"
+                        >
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Talk to Infinity
                         </Button>
-                        <ThemeRow />
                       </div>
                     </SheetContent>
                   </Sheet>
                 </div>
               </>
             )}
+            </div>
           </div>
         </header>
 

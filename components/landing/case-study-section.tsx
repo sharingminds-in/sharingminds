@@ -45,7 +45,7 @@ export function CaseStudySection() {
   const router = useRouter()
 
   return (
-    <section className="relative py-20 lg:py-28 overflow-hidden">
+    <section id="resources" className="relative scroll-mt-24 py-20 lg:py-28 overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-b from-slate-900 to-slate-950" />
 

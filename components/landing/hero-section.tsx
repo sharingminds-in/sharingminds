@@ -13,6 +13,7 @@ import { MentorDetailView } from "@/components/mentee/mentor-detail-view"
 import { useAuth } from "@/contexts/auth-context"
 import { SignInPopup } from "@/components/auth/sign-in-popup"
 import { useTRPCClient } from "@/lib/trpc/react"
+import { LandingHeroExperience } from "@/components/landing/landing-hero-experience"
 
 interface Message {
   id: string
@@ -548,9 +549,45 @@ export function HeroSection() {
     return (first + last).toUpperCase() || "?"
   }
 
+  const handleTopicSelect = (prompt: string) => {
+    setInputValue(prompt)
+    requestAnimationFrame(() => textareaRef.current?.focus())
+  }
+
+  const useLegacyHero = process.env.NEXT_PUBLIC_LANDING_HERO_VERSION === 'legacy'
+
   return (
     <>
-      {/* Hero Section */}
+      {!useLegacyHero && (
+      <LandingHeroExperience
+        heroRef={heroRef}
+        chatContainerRef={chatContainerRef}
+        textareaRef={textareaRef}
+        chatEndRef={chatEndRef}
+        inputValue={inputValue}
+        currentPlaceholder={currentPlaceholder}
+        currentAiMessage={currentAiMessage}
+        messages={messages}
+        isFocused={isFocused}
+        isChatExpanded={isChatExpanded}
+        isAiTyping={isAiTyping}
+        isSearchingMentors={isSearchingMentors}
+        isChatLimitReached={isChatLimitReached}
+        userMessageCount={userMessageCount}
+        messagesRemaining={messagesRemaining}
+        remainingColorClass={remainingColorClass}
+        onInputChange={setInputValue}
+        onInputFocus={() => setIsFocused(true)}
+        onInputBlur={() => setIsFocused(false)}
+        onInputKeyDown={handleKeyPress}
+        onContainerClick={handleContainerClick}
+        onSubmit={handleSubmit}
+        onResetChat={resetChat}
+        onTopicSelect={handleTopicSelect}
+      />
+      )}
+
+      {useLegacyHero && (
       <section ref={heroRef} className="relative min-h-[90vh] flex items-center overflow-hidden">
         {/* Gradient Background */}
         <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -826,6 +863,7 @@ export function HeroSection() {
           </div>
         </div>
       </section>
+      )}
 
       {/* Mentor Recommendations */}
       {showMentors && (

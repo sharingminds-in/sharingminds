@@ -14,7 +14,7 @@ export function CTASection() {
     const router = useRouter()
 
     return (
-        <section className="relative py-20 lg:py-28 overflow-hidden">
+        <section id="pricing" className="relative scroll-mt-24 py-20 lg:py-28 overflow-hidden">
             {/* Background with gradient */}
             <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600">
                 {/* Overlay pattern */}

@@ -74,7 +74,7 @@ export function MentorSection() {
     (exp ?? "").split(/[,;]\s*/g).map(s => s.trim()).filter(Boolean).slice(0, 3)
 
   return (
-    <section className="relative py-20 lg:py-28 overflow-hidden">
+    <section id="experts" className="relative scroll-mt-24 py-20 lg:py-28 overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-b from-slate-900 to-slate-950" />
 
