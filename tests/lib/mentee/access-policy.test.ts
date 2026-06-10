@@ -224,6 +224,9 @@ describe('mentee access policy', () => {
     expect(getMenteeDashboardSectionFeature('my-courses')).toBe(
       MENTEE_FEATURE_KEYS.learningWorkspace
     );
+    expect(getMenteeDashboardSectionFeature('chat')).toBe(
+      MENTEE_FEATURE_KEYS.aiChatUse
+    );
     expect(getMenteeDashboardSectionFeature('subscription')).toBe(
       MENTEE_FEATURE_KEYS.subscriptionManage
     );

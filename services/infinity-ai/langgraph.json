@@ -1,0 +1,8 @@
+{
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "infinity_ai": "./app/orchestration/studio.py:graph"
+  }
+}

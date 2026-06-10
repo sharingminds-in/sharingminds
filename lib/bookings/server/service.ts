@@ -52,6 +52,12 @@ import { findAvailableReplacementMentor } from '@/lib/services/mentor-matching';
 import { MENTOR_FEATURE_KEYS } from '@/lib/mentor/access-policy';
 import { isRazorpayEnabled } from '@/lib/payments/config';
 import {
+  countPreviousAiBookingsForPair,
+  findBookingAttributionForSession,
+  recordRecommendationEvent,
+} from '@/lib/infinity-ai/repository';
+import { parseExpertise } from '@/lib/utils/safe-json';
+import {
   sendAlternativeMentorSelectedEmail,
   sendBookingConfirmedEmail,
   sendMenteeCancelledEmail,
@@ -435,11 +441,7 @@ export async function updateBooking(
     let title = 'Session Updated';
     let message = `Your session "${booking.title}" has been updated by the ${userRole}`;
 
-    if (authorizedUpdate.status === 'cancelled') {
-      notificationType = 'BOOKING_CANCELLED';
-      title = 'Session Cancelled';
-      message = `Your session "${booking.title}" has been cancelled by the ${userRole}`;
-    } else if (authorizedUpdate.status === 'completed') {
+    if (authorizedUpdate.status === 'completed') {
       notificationType = 'SESSION_COMPLETED';
       title = 'Session Completed';
       message = `Your session "${booking.title}" has been marked as completed`;
@@ -455,6 +457,24 @@ export async function updateBooking(
       actionUrl: `/dashboard?section=${isMentor ? 'sessions' : 'schedule'}`,
       actionText: 'View Details',
     });
+
+    if (authorizedUpdate.status === 'completed' && booking.bookingSource === 'ai') {
+      const attribution = await findBookingAttributionForSession(booking.id);
+      if (attribution) {
+        await recordRecommendationEvent({
+          conversationId: attribution.conversationId,
+          runId: attribution.runId,
+          userId: booking.menteeId,
+          mentorProfileId: attribution.mentorProfileId,
+          eventType: 'completion_attributed',
+          idempotencyKey: `completion:${booking.id}`,
+          metadata: {
+            sessionId: booking.id,
+            completedBy: context.userId,
+          },
+        });
+      }
+    }
   }
 
   return {
@@ -756,6 +776,43 @@ export async function createBooking(
       paymentIntentId: options.paymentIntentId,
     })
     .returning();
+
+  if (bookingSource === 'ai' && parsed.aiConversationId) {
+    const previousAiBookingCount = await countPreviousAiBookingsForPair({
+      mentorUserId: parsed.mentorId,
+      menteeUserId: context.userId,
+    });
+
+    await recordRecommendationEvent({
+      conversationId: parsed.aiConversationId,
+      runId: parsed.aiRecommendationRunId ?? null,
+      userId: context.userId,
+      mentorProfileId: parsed.aiMentorProfileId ?? null,
+      eventType: 'booking_attributed',
+      idempotencyKey: `booking:${newBooking.id}`,
+      metadata: {
+        sessionId: newBooking.id,
+        sessionType: parsed.sessionType,
+        scheduledAt: scheduledAt.toISOString(),
+        previousAiBookingCount,
+      },
+    });
+
+    if (previousAiBookingCount > 0) {
+      await recordRecommendationEvent({
+        conversationId: parsed.aiConversationId,
+        runId: parsed.aiRecommendationRunId ?? null,
+        userId: context.userId,
+        mentorProfileId: parsed.aiMentorProfileId ?? null,
+        eventType: 'repeat_booking_attributed',
+        idempotencyKey: `repeat-booking:${newBooking.id}`,
+        metadata: {
+          sessionId: newBooking.id,
+          previousAiBookingCount,
+        },
+      });
+    }
+  }
 
   if (isAiBooking && mentorSessionFeatureAction) {
     try {
@@ -1081,7 +1138,7 @@ async function findAvailableMentorsForSession(
       userId: mentorDetails.userId,
       name: userDetails.name || 'Unknown',
       avatar: userDetails.image || undefined,
-      expertise: (mentorDetails.expertise as string[]) || [],
+      expertise: parseExpertise(mentorDetails.expertise),
       hourlyRate: Number(mentorDetails.hourlyRate) || 0,
       isAvailableAtOriginalTime: isTimeSlotAvailable && !hasConflict,
     });

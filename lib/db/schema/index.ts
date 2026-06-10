@@ -37,6 +37,7 @@ export * from './admin-session-notes';
 export * from './subscriptions';
 export * from './payments';
 export * from './access-policy-configs';
+export * from './infinity-ai';
 
 // Temporary empty export to prevent TypeScript errors
 export { };

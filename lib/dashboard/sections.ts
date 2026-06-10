@@ -11,6 +11,7 @@ export type DashboardSectionKey =
   | 'mentors'
   | 'courses'
   | 'my-courses'
+  | 'chat'
   | 'messages'
   | 'notifications'
   | 'sessions'
@@ -91,6 +92,14 @@ export const DASHBOARD_SECTIONS = [
     audiences: ['mentor', 'mentee'],
     scopes: ['root', 'dashboard'],
     shellMode: 'page',
+    navigation: true,
+  },
+  {
+    key: 'chat',
+    title: 'AI Chat',
+    audiences: ['mentee'],
+    scopes: ['root', 'dashboard'],
+    shellMode: 'workspace',
     navigation: true,
   },
   {
@@ -208,7 +217,7 @@ export const DASHBOARD_SECTIONS = [
   {
     key: 'settings',
     title: 'Settings',
-    audiences: ['admin'],
+    audiences: ['admin', 'mentor', 'mentee'],
     scopes: ['root', 'dashboard'],
     shellMode: 'page',
     navigation: true,
@@ -240,8 +249,8 @@ export function isSectionAvailableForAudience(
   }
 
   return (
-    section.audiences.includes(audience) &&
-    section.scopes.includes(scope)
+    (section.audiences as readonly DashboardAudience[]).includes(audience) &&
+    (section.scopes as readonly DashboardNavigationScope[]).includes(scope)
   );
 }
 
@@ -265,8 +274,8 @@ export function getNavigationSections(
   return DASHBOARD_SECTIONS.filter(
     (section) =>
       section.navigation &&
-      section.audiences.includes(audience) &&
-      section.scopes.includes(scope)
+      (section.audiences as readonly DashboardAudience[]).includes(audience) &&
+      (section.scopes as readonly DashboardNavigationScope[]).includes(scope)
   );
 }
 

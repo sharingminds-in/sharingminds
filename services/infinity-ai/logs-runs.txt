@@ -1,0 +1,107 @@
+PS C:\Users\Raf\Desktop\Projects\YM\young-minds-landing-page> cd C:\Users\Raf\Desktop\Projects\YM\young-minds-landing-page\services\infinity-ai
+PS C:\Users\Raf\Desktop\Projects\YM\young-minds-landing-page\services\infinity-ai> uv sync --group dev
+Resolved 61 packages in 1ms
+Checked 59 packages in 284ms
+PS C:\Users\Raf\Desktop\Projects\YM\young-minds-landing-page\services\infinity-ai> uvx --from "langgraph-cli[inmem]" langgraph dev --config .\langgraph.json
+      Built forbiddenfruit==0.1.4
+Installed 69 packages in 1.97s
+INFO:langgraph_api.cli:
+
+        Welcome to
+
+╦  ┌─┐┌┐┌┌─┐╔═╗┬─┐┌─┐┌─┐┬ ┬
+║  ├─┤││││ ┬║ ╦├┬┘├─┤├─┘├─┤
+╩═╝┴ ┴┘└┘└─┘╚═╝┴└─┴ ┴┴  ┴ ┴
+
+- 🚀 API: http://127.0.0.1:2024
+- 🎨 Studio UI: https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024
+- 📚 API Docs: http://127.0.0.1:2024/docs
+
+This in-memory server is designed for development and testing.
+For production use, please use LangSmith Deployment.
+
+
+2026-06-02T20:49:32.242892Z [info     ] Starting dev persistence flush loop [langgraph_runtime_inmem._persistence] api_variant=local_dev langgraph_api_version=0.9.0 thread_name=MainThread
+2026-06-02T20:49:32.428022Z [info     ] Using langgraph_runtime_inmem  [langgraph_runtime] api_variant=local_dev langgraph_api_version=0.9.0 thread_name=MainThread
+2026-06-02T20:49:33.266250Z [info     ] Using auth of type=noop        [langgraph_api.auth.middleware] api_variant=local_dev langgraph_api_version=0.9.0 thread_name=MainThread
+2026-06-02T20:49:36.081043Z [info     ] Starting dev persistence flush loop [langgraph_runtime_inmem._persistence] api_variant=local_dev langgraph_api_version=0.9.0 thread_name=MainThread
+2026-06-02T20:49:36.131754Z [info     ] Using langgraph_runtime_inmem  [langgraph_runtime] api_variant=local_dev langgraph_api_version=0.9.0 thread_name=MainThread
+2026-06-02T20:49:36.304955Z [info     ] Using auth of type=noop        [langgraph_api.auth.middleware] api_variant=local_dev langgraph_api_version=0.9.0 thread_name=MainThread
+2026-06-02T20:49:36.320868Z [info     ] Starting In-Memory runtime with langgraph-api=0.9.0 and in-memory runtime=0.29.0 [langgraph_runtime_inmem.lifespan] api_variant=local_dev langgraph_api_version=0.9.0 langgraph_runtime_inmem_version=0.29.0 thread_name=asyncio_0 version=0.9.0
+2026-06-02T20:49:37.012915Z [info     ] No license key or control plane API key set, skipping metadata loop [langgraph_api.metadata] api_variant=local_dev langgraph_api_version=0.9.0 thread_name=MainThread
+2026-06-02T20:49:37.029645Z [info     ] Importing graph profiling      [langgraph_api.timing.timer] api_variant=local_dev elapsed_seconds=0.01676980033516884 graph_id=infinity_ai langgraph_api_version=0.9.0 module=None name=_graph_from_spec path=./app/orchestration/studio.py thread_name=asyncio_0
+ModuleNotFoundError("No module named 'pydantic_settings'")
+2026-06-02T20:49:37.053757Z [error    ] Graph 'infinity_ai' failed to load: ModuleNotFoundError: No module named 'pydantic_settings' [langgraph_runtime_inmem.lifespan] action=fix_user_graph api_variant=local_dev error_boundary=user_graph error_message="ModuleNotFoundError: No module named 'pydantic_settings'" error_type=ModuleNotFoundError graph_id=infinity_ai hint='Check that your project dependencies are installed and imports are correct.' langgraph_api_version=0.9.0 location=./app/orchestration/studio.py notes="Could not import python module for graph:\nGraphSpec(id='infinity_ai', path='./app/orchestration/studio.py', module=None, variable='graph', config={}, description=None)\nThis error likely means you haven't installed your project and its dependencies yet. Before running the server, install your project:\n\nIf you are using requirements.txt:\npython -m pip install -r requirements.txt\n\nIf you are using pyproject.toml or setuptools:\npython -m pip 
+install -e .\n\nMake sure to run this command from your project's root directory (where your setup.py or pyproject.toml is located)" summary="ModuleNotFoundError: ModuleNotFoundError: No module 
+named 'pydantic_settings'" thread_name=asyncio_0 user_traceback='Traceback (most recent call last):\n  File "C:\\Users\\Raf\\AppData\\Local\\uv\\cache\\archive-v0\\K_rrPnNpdvOXnGauRnIzR\\Lib\\site-packages\\langgraph_api\\graph.py", line 641, in collect_graphs_from_env\n    graph = await run_in_executor(None, _graph_from_spec, spec)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File "C:\\Users\\Raf\\AppData\\Local\\uv\\cache\\archive-v0\\K_rrPnNpdvOXnGauRnIzR\\Lib\\site-packages\\langgraph_api\\utils\\config.py", line 145, in run_in_executor\n    return 
+await asyncio.get_running_loop().run_in_executor(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<2 lines>...\n    )\n    ^\n  File "C:\\Users\\Raf\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\concurrent\\futures\\thread.py", line 59, in run\n    result = self.fn(*self.args, **self.kwargs)\n  File "C:\\Users\\Raf\\AppData\\Local\\uv\\cache\\archive-v0\\K_rrPnNpdvOXnGauRnIzR\\Lib\\site-packages\\langgraph_api\\utils\\config.py", line 136, in wrapper\n    return func(*args, **kwargs)\n  File "C:\\Users\\Raf\\AppData\\Local\\uv\\cache\\archive-v0\\K_rrPnNpdvOXnGauRnIzR\\Lib\\site-packages\\langgraph_api\\timing\\timer.py", line 101, in wrapper\n    return func(*args, **kwargs)\n  File "C:\\Users\\Raf\\AppData\\Local\\uv\\cache\\archive-v0\\K_rrPnNpdvOXnGauRnIzR\\Lib\\site-packages\\langgraph_api\\graph.py", line 744, in _graph_from_spec\n    modspec.loader.exec_module(module)\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^\n  File "<frozen importlib._bootstrap_external>", line 1023, in exec_module\n  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed\n  File "C:\\Users\\Raf\\Desktop\\Projects\\YM\\young-minds-landing-page\\services\\infinity-ai\\app/orchestration/studio.py", line 9, in <module>\n    from app.llm.provider import LlmCallResult, LlmProvider\n  File "C:\\Users\\Raf\\Desktop\\Projects\\YM\\young-minds-landing-page\\services\\infinity-ai\\app\\llm\\__init__.py", line 1, in <module>\n    from app.core.config import get_settings\n  File "C:\\Users\\Raf\\Desktop\\Projects\\YM\\young-minds-landing-page\\services\\infinity-ai\\app\\core\\config.py", line 5, in <module>\n    from pydantic_settings import BaseSettings, SettingsConfigDict\nModuleNotFoundError: No module named \'pydantic_settings\'\nCould not import python module for graph:\nGraphSpec(id=\'infinity_ai\', path=\'./app/orchestration/studio.py\', module=None, variable=\'graph\', 
+config={}, description=None)\nThis error likely means you haven\'t installed your project and its dependencies yet. Before running the server, install your project:\n\nIf you are using requirements.txt:\npython -m pip install -r requirements.txt\n\nIf you are using pyproject.toml or setuptools:\npython -m pip install -e .\n\nMake sure to run this command from your project\'s root directory (where your setup.py or pyproject.toml is located)\n'
+2026-06-02T20:49:37.061800Z [info     ] Shutting down remote graphs    [langgraph_api.graph] api_variant=local_dev langgraph_api_version=0.9.0 thread_name=MainThread
+2026-06-02T20:49:37.096376Z [info     ] 4 changes detected             [watchfiles.main] api_variant=local_dev langgraph_api_version=0.9.0 thread_name=MainThread
+2026-06-02T20:49:37.134919Z [info     ] Stopping dev persistence flush loop [langgraph_runtime_inmem._persistence] api_variant=local_dev langgraph_api_version=0.9.0 thread_name=MainThread
+2026-06-02T20:49:37.135932Z [info     ] dev persistence flush loop exiting [langgraph_runtime_inmem._persistence] api_variant=local_dev langgraph_api_version=0.9.0 thread_name=Thread-1
+2026-06-02T20:49:37.174188Z [error    ] Traceback (most recent call last):
+  File "C:\Users\Raf\AppData\Local\uv\cache\archive-v0\K_rrPnNpdvOXnGauRnIzR\Lib\site-packages\langgraph_api\graph.py", line 641, in collect_graphs_from_env
+    graph = await run_in_executor(None, _graph_from_spec, spec)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Raf\AppData\Local\uv\cache\archive-v0\K_rrPnNpdvOXnGauRnIzR\Lib\site-packages\langgraph_api\utils\config.py", line 145, in run_in_executor
+    return await asyncio.get_running_loop().run_in_executor(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+    )
+    ^
+  File "C:\Users\Raf\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\concurrent\futures\thread.py", line 59, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "C:\Users\Raf\AppData\Local\uv\cache\archive-v0\K_rrPnNpdvOXnGauRnIzR\Lib\site-packages\langgraph_api\utils\config.py", line 136, in wrapper
+    return func(*args, **kwargs)
+  File "C:\Users\Raf\AppData\Local\uv\cache\archive-v0\K_rrPnNpdvOXnGauRnIzR\Lib\site-packages\langgraph_api\timing\timer.py", line 101, in wrapper
+    return func(*args, **kwargs)
+  File "C:\Users\Raf\AppData\Local\uv\cache\archive-v0\K_rrPnNpdvOXnGauRnIzR\Lib\site-packages\langgraph_api\graph.py", line 744, in _graph_from_spec
+    modspec.loader.exec_module(module)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "C:\Users\Raf\Desktop\Projects\YM\young-minds-landing-page\services\infinity-ai\app/orchestration/studio.py", line 9, in <module>
+    from app.llm.provider import LlmCallResult, LlmProvider
+  File "C:\Users\Raf\Desktop\Projects\YM\young-minds-landing-page\services\infinity-ai\app\llm\__init__.py", line 1, in <module>
+    from app.core.config import get_settings
+  File "C:\Users\Raf\Desktop\Projects\YM\young-minds-landing-page\services\infinity-ai\app\core\config.py", line 5, in <module>
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+ModuleNotFoundError: No module named 'pydantic_settings'
+Could not import python module for graph:
+GraphSpec(id='infinity_ai', path='./app/orchestration/studio.py', module=None, variable='graph', config={}, description=None)
+This error likely means you haven't installed your project and its dependencies yet. Before running the server, install your project:
+
+If you are using requirements.txt:
+python -m pip install -r requirements.txt
+
+If you are using pyproject.toml or setuptools:
+python -m pip install -e .
+
+Make sure to run this command from your project's root directory (where your setup.py or pyproject.toml is located)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Raf\AppData\Local\uv\cache\archive-v0\K_rrPnNpdvOXnGauRnIzR\Lib\site-packages\starlette\routing.py", line 638, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+               ~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\Users\Raf\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\contextlib.py", line 214, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Raf\AppData\Local\uv\cache\archive-v0\K_rrPnNpdvOXnGauRnIzR\Lib\site-packages\langgraph_api\timing\timer.py", line 227, in combined_lifespan
+    await stack.enter_async_context(ls(app))
+  File "C:\Users\Raf\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\contextlib.py", line 668, in enter_async_context
+    result = await _enter(cm)
+             ^^^^^^^^^^^^^^^^
+  File "C:\Users\Raf\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\contextlib.py", line 214, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Raf\AppData\Local\uv\cache\archive-v0\K_rrPnNpdvOXnGauRnIzR\Lib\site-packages\langgraph_runtime_inmem\lifespan.py", line 118, in lifespan
+    await graph.collect_graphs_from_env(True)
+  File "C:\Users\Raf\AppData\Local\uv\cache\archive-v0\K_rrPnNpdvOXnGauRnIzR\Lib\site-packages\langgraph_api\graph.py", line 643, in collect_graphs_from_env
+    raise GraphLoadError(spec, exc) from exc
+langgraph_api.utils.errors.GraphLoadError: Failed to load graph 'infinity_ai' from ./app/orchestration/studio.py: No module named 'pydantic_settings'
+ [uvicorn.error] api_variant=local_dev langgraph_api_version=0.9.0 thread_name=MainThread
+2026-06-02T20:49:37.186042Z [error    ] Application startup failed. Exiting. [uvicorn.error] api_variant=local_dev langgraph_api_version=0.9.0 thread_name=MainThread
+2026-06-02T20:49:37.452600Z [info     ] 22 changes detected            [watchfiles.main] api_variant=local_dev langgraph_api_version=0.9.0 thread_name=MainThread

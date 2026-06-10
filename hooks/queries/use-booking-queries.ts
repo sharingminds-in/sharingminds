@@ -174,6 +174,9 @@ export function useCreateBookingMutation() {
       meetingType,
       location,
       bookingSource,
+      aiConversationId,
+      aiRecommendationRunId,
+      aiMentorProfileId,
     }: {
       mentorId: string;
       sessionType: 'FREE' | 'PAID' | 'COUNSELING';
@@ -184,6 +187,9 @@ export function useCreateBookingMutation() {
       meetingType: 'video' | 'audio' | 'chat';
       location?: string;
       bookingSource?: 'default' | 'ai' | 'explore';
+      aiConversationId?: string;
+      aiRecommendationRunId?: string;
+      aiMentorProfileId?: string;
     }) =>
       trpcClient.bookings.create.mutate({
         mentorId,
@@ -195,6 +201,9 @@ export function useCreateBookingMutation() {
         meetingType,
         location,
         bookingSource,
+        aiConversationId,
+        aiRecommendationRunId,
+        aiMentorProfileId,
       }),
     onSuccess: async () => {
       await invalidateBookingQueries(queryClient);

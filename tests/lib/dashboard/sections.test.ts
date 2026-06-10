@@ -13,6 +13,11 @@ describe('dashboard section registry', () => {
       key: 'messages',
       shellMode: 'workspace',
     });
+    expect(getDashboardSection('chat')).toMatchObject({
+      key: 'chat',
+      shellMode: 'workspace',
+      audiences: ['mentee'],
+    });
     expect(getDashboardSection('notifications')).toMatchObject({
       key: 'notifications',
       shellMode: 'page',
@@ -38,7 +43,7 @@ describe('dashboard section registry', () => {
     );
     expect(
       resolveDashboardSection('settings', 'mentor', 'dashboard', 'dashboard')
-    ).toBe('dashboard');
+    ).toBe('settings');
     expect(
       resolveDashboardSection('messages', 'admin', 'dashboard', 'dashboard')
     ).toBe('messages');
@@ -50,13 +55,14 @@ describe('dashboard section registry', () => {
 
     expect(mentorKeys).toContain('messages');
     expect(mentorKeys).toContain('reviews');
+    expect(mentorKeys).toContain('settings');
     expect(mentorKeys).not.toContain('earnings');
-    expect(mentorKeys).not.toContain('settings');
 
     const menteeDashboardSections = getNavigationSections('mentee', 'dashboard');
-    expect(menteeDashboardSections.map((section) => section.key)).not.toContain(
-      'home'
-    );
+    const menteeKeys = menteeDashboardSections.map((section) => section.key);
+    expect(menteeKeys).toContain('chat');
+    expect(menteeKeys).toContain('settings');
+    expect(menteeKeys).not.toContain('home');
   });
 
   it('builds standardized dashboard section urls from one helper', () => {

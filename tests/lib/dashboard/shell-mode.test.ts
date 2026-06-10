@@ -9,8 +9,11 @@ import {
 describe('dashboard shell mode', () => {
   it('treats configured workspace sections as workspace layouts', () => {
     expect(DASHBOARD_WORKSPACE_SECTIONS).toContain('messages');
+    expect(DASHBOARD_WORKSPACE_SECTIONS).toContain('chat');
     expect(getDashboardShellMode('messages')).toBe('workspace');
+    expect(getDashboardShellMode('chat')).toBe('workspace');
     expect(isDashboardWorkspaceSection('messages')).toBe(true);
+    expect(isDashboardWorkspaceSection('chat')).toBe(true);
   });
 
   it('treats unknown or missing sections as page layouts', () => {

@@ -37,7 +37,7 @@ export function SignInPopup({ isOpen, onClose, callbackUrl = "/dashboard" }: Sig
         prompt: 'select_account',
       })
       onClose()
-      router.replace('/dashboard')
+      router.replace(callbackUrl)
       router.refresh()
     } catch (error) {
       console.error("Sign in error:", error)
@@ -55,7 +55,7 @@ export function SignInPopup({ isOpen, onClose, callbackUrl = "/dashboard" }: Sig
         prompt: 'select_account',
       })
       onClose()
-      router.replace('/dashboard')
+      router.replace(callbackUrl)
       router.refresh()
     } catch (error) {
       console.error("Sign in error:", error)
@@ -129,7 +129,7 @@ export function SignInPopup({ isOpen, onClose, callbackUrl = "/dashboard" }: Sig
               <Button
                 onClick={() => {
                   onClose();
-                  router.push('/auth/signin');
+                  router.push(`/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`);
                 }}
                 disabled={isLoading}
                 className="w-full"

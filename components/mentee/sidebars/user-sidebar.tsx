@@ -26,9 +26,12 @@ import {
   User,
   GraduationCap,
   BookOpen,
+  Bot,
   Sparkles,
+  Settings,
   ChevronRight,
   Lock,
+  type LucideIcon,
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useMessaging } from "@/hooks/use-messaging-v2"
@@ -71,7 +74,11 @@ export function UserSidebar({
       getNavigationSections("mentee", navigationScope).map((section) => section.key)
     )
 
-    return [
+    const items: Array<{
+      title: string
+      icon: LucideIcon
+      key: DashboardSectionKey
+    }> = [
     { title: "Home", icon: Home, key: "home" },
     { title: "Dashboard", icon: LayoutDashboard, key: "dashboard" },
     { title: "Explore Mentors", icon: Users, key: "explore" },
@@ -79,11 +86,15 @@ export function UserSidebar({
     { title: "My Mentors", icon: Users2, key: "mentors" },
     { title: "Courses", icon: GraduationCap, key: "courses" },
     { title: "My Learning", icon: BookOpen, key: "my-courses" },
+    { title: "AI Chat", icon: Bot, key: "chat" },
     { title: "Messages", icon: Mail, key: "messages" },
     { title: "Sessions", icon: Calendar, key: "sessions" },
     { title: "Subscription", icon: Sparkles, key: "subscription" },
+    { title: "Settings", icon: Settings, key: "settings" },
     { title: "Profile", icon: User, key: "profile" }
-    ].filter((item) => allowedKeys.has(item.key))
+    ]
+
+    return items.filter((item) => allowedKeys.has(item.key))
   }, [navigationScope])
 
   return (

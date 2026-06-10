@@ -1,12 +1,14 @@
 import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
-import { NodePgTransaction } from 'drizzle-orm/node-postgres';
 
 import {
   AccessPolicyError,
   assertMenteeFeatureAccess as assertSharedMenteeFeatureAccess,
 } from '@/lib/access-policy/server';
 import { db } from '@/lib/db';
-import * as schema from '@/lib/db/schema';
+import {
+  findBookingAttributionForSession,
+  recordRecommendationEvent,
+} from '@/lib/infinity-ai/repository';
 import {
   contentItemReviews,
   courseCertificates,
@@ -1525,7 +1527,7 @@ export async function getReviewQuestions(
     .where(
       and(
         eq(reviewQuestions.role, parsed.role),
-        eq(reviewQuestions.isActive, 'true')
+        eq(reviewQuestions.isActive, true)
       )
     )
     .orderBy(asc(reviewQuestions.displayOrder));
@@ -1543,6 +1545,7 @@ export async function submitSessionReview(
       id: sessions.id,
       mentorId: sessions.mentorId,
       menteeId: sessions.menteeId,
+      bookingSource: sessions.bookingSource,
     })
     .from(sessions)
     .where(eq(sessions.id, parsed.sessionId))
@@ -1588,13 +1591,18 @@ export async function submitSessionReview(
       )
     );
 
+  const normalizedRatings = parsed.ratings.map((rating) => ({
+    questionId: rating.questionId,
+    rating: rating.rating,
+  }));
+
   const finalScore = calculateWeightedReviewScore(
     questionsForRole,
-    parsed.ratings
+    normalizedRatings
   );
 
-  const [insertedReview] = await db.transaction(
-    async (tx: NodePgTransaction<typeof schema, Record<string, never>>) => {
+  const insertedReview = await db.transaction(
+    async (tx) => {
       const [newReview] = await tx
         .insert(reviews)
         .values({
@@ -1608,7 +1616,7 @@ export async function submitSessionReview(
         .returning({ id: reviews.id });
 
       await tx.insert(reviewRatings).values(
-        parsed.ratings.map((rating) => ({
+        normalizedRatings.map((rating) => ({
           reviewId: newReview.id,
           questionId: rating.questionId,
           rating: rating.rating,
@@ -1625,6 +1633,26 @@ export async function submitSessionReview(
       return newReview;
     }
   );
+
+  if (session.bookingSource === 'ai') {
+    const attribution = await findBookingAttributionForSession(session.id);
+    if (attribution) {
+      await recordRecommendationEvent({
+        conversationId: attribution.conversationId,
+        runId: attribution.runId,
+        userId,
+        mentorProfileId: attribution.mentorProfileId,
+        eventType: 'review_attributed',
+        idempotencyKey: `review:${insertedReview.id}`,
+        metadata: {
+          sessionId: session.id,
+          reviewId: insertedReview.id,
+          reviewerRole: reviewContext.reviewerRole,
+          finalScore,
+        },
+      });
+    }
+  }
 
   return {
     success: true,

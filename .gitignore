@@ -3,6 +3,12 @@
 # dependencies
 /node_modules
 .codex
+services/infinity-ai/.venv*/
+services/infinity-ai/.pytest_cache/
+services/infinity-ai/.langgraph_api/
+services/infinity-ai/logs/*.jsonl
+__pycache__/
+*.py[cod]
 # next.js
 /.next/
 /out/

@@ -57,6 +57,11 @@ interface BookingModalProps {
   mentor: Mentor;
   allowFreeBooking?: boolean;
   bookingSource?: 'ai' | 'explore';
+  aiContext?: {
+    conversationId: string;
+    recommendationRunId?: string | null;
+    mentorProfileId?: string | null;
+  };
 }
 
 type BookingStep = 'time-selection' | 'details' | 'confirmation' | 'success';
@@ -76,7 +81,8 @@ export function BookingModal({
   onClose,
   mentor,
   allowFreeBooking = true,
-  bookingSource = allowFreeBooking ? 'ai' : 'explore',
+  bookingSource = 'explore',
+  aiContext,
 }: BookingModalProps) {
   const trpcClient = useTRPCClient();
   const { session } = useAuth();
@@ -219,6 +225,9 @@ export function BookingModal({
         duration: bookingData.duration!,
         meetingType: bookingData.meetingType!,
         location: bookingData.location,
+        aiConversationId: aiContext?.conversationId,
+        aiRecommendationRunId: aiContext?.recommendationRunId ?? undefined,
+        aiMentorProfileId: aiContext?.mentorProfileId ?? mentor.id,
       };
 
       if (bookingPayload.sessionType === 'PAID') {

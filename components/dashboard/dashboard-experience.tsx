@@ -11,6 +11,8 @@ import { StatsSection } from '@/components/landing/stats-section';
 import { MentorSection } from '@/components/landing/mentor-section';
 import { VideoCallSection } from '@/components/landing/video-call-section';
 import { ChatSection } from '@/components/landing/chat-section';
+import { InfinityAiChat } from '@/components/infinity-ai/InfinityAiChat';
+import { AiMemorySettings } from '@/components/infinity-ai/AiMemorySettings';
 import { CollabExpertsSection } from '@/components/landing/collab-experts-section';
 import { CaseStudySection } from '@/components/landing/case-study-section';
 import { ServicesGrid } from '@/components/landing/services-grid';
@@ -247,15 +249,21 @@ export function DashboardExperience({
     setSelectedMentor(mentorId);
     navigateToSection('mentor-detail', {
       mentor: mentorId,
-      from: activeSection === 'explore' ? 'explore' : null,
+      from:
+        activeSection === 'explore'
+          ? 'explore'
+          : activeSection === 'chat'
+            ? 'chat'
+            : null,
     });
   };
 
   const handleMentorBack = () => {
-    setActiveSection('explore');
+    const returnSection = mentorSource === 'chat' ? 'chat' : 'explore';
+    setActiveSection(returnSection);
     setSelectedMentor(null);
     setMentorSource(null);
-    navigateToSection('explore');
+    navigateToSection(returnSection);
   };
 
   const handleSearchClick = () => {
@@ -413,6 +421,8 @@ export function DashboardExperience({
           return <MentorReviewsSection />;
         case 'profile':
           return <MentorProfileEdit />;
+        case 'settings':
+          return <AiMemorySettings />;
         default:
           return (
             <MentorOnlyDashboard
@@ -451,6 +461,15 @@ export function DashboardExperience({
         return <Courses />;
       case 'my-courses':
         return <MyLearning />;
+      case 'chat':
+        return (
+          <InfinityAiChat
+            variant='dashboard'
+            surface='landing_page'
+            showHistory
+            onMentorSelect={handleMentorSelect}
+          />
+        );
       case 'messages':
         return (
           <DashboardSectionFrame section={activeSection}>
@@ -469,7 +488,13 @@ export function DashboardExperience({
         return (
           <MentorDetailView
             mentorId={selectedMentor}
-            bookingSource={mentorSource === 'explore' ? 'explore' : 'default'}
+            bookingSource={
+              mentorSource === 'explore'
+                ? 'explore'
+                : mentorSource === 'chat'
+                  ? 'ai'
+                  : 'default'
+            }
             onBack={handleMentorBack}
           />
         );
@@ -481,6 +506,8 @@ export function DashboardExperience({
             <MenteeSubscription />
           </div>
         );
+      case 'settings':
+        return <AiMemorySettings />;
       default:
         return (
           <Dashboard

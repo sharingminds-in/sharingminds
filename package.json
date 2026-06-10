@@ -20,7 +20,9 @@
     "db:studio": "drizzle-kit studio",
     "db:drop": "drizzle-kit drop",
     "db:seed": "tsx lib/db/seed.ts",
-    "db:import:dump": "bash scripts/import-public-dump.sh docker/backup.sql sharing_minds_dump"
+    "db:import:dump": "bash scripts/import-public-dump.sh docker/backup.sql sharing_minds_dump",
+    "infinity-ai:seed:dummy": "tsx scripts/infinity-ai/seed-sharingminds-dummy-data.ts",
+    "infinity-ai:cleanup:dummy": "tsx scripts/infinity-ai/cleanup-sharingminds-dummy-data.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.6",

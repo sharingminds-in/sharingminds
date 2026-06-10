@@ -24,7 +24,9 @@ import {
   BookOpen,
   CalendarClock,
   CreditCard,
-  Lock
+  Settings,
+  Lock,
+  type LucideIcon
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useMentorDashboardStats } from "@/hooks/use-mentor-dashboard"
@@ -78,7 +80,11 @@ export function MentorSidebar({
     getNavigationSections("mentor", navigationScope).map((section) => section.key)
   )
 
-  const mentorMenuItems = [
+  const allMentorMenuItems: Array<{
+    title: string
+    icon: LucideIcon
+    key: DashboardSectionKey
+  }> = [
     {
       title: "Dashboard",
       icon: LayoutDashboard,
@@ -128,8 +134,15 @@ export function MentorSidebar({
       title: "Profile",
       icon: User,
       key: "profile"
+    },
+    {
+      title: "Settings",
+      icon: Settings,
+      key: "settings"
     }
-  ].filter((item) => allowedKeys.has(item.key))
+  ]
+
+  const mentorMenuItems = allMentorMenuItems.filter((item) => allowedKeys.has(item.key))
 
   const mentorName = mentorProfile?.fullName || session?.user?.name || 'Mentor'
   const mentorInitials = mentorName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
@@ -305,4 +318,4 @@ export function MentorSidebar({
       </SidebarFooter>
     </Sidebar>
   )
-} 
+}

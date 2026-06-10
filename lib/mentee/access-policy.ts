@@ -364,6 +364,7 @@ export const MENTEE_DASHBOARD_SECTION_FEATURES: Partial<
   mentors: MENTEE_FEATURE_KEYS.mentorDirectoryView,
   courses: MENTEE_FEATURE_KEYS.coursesBrowse,
   'my-courses': MENTEE_FEATURE_KEYS.learningWorkspace,
+  chat: MENTEE_FEATURE_KEYS.aiChatUse,
   messages: MENTEE_FEATURE_KEYS.messagesView,
   sessions: MENTEE_FEATURE_KEYS.sessionsView,
   subscription: MENTEE_FEATURE_KEYS.subscriptionManage,

@@ -13,6 +13,7 @@ import { MentorDetailView } from "@/components/mentee/mentor-detail-view"
 import { useAuth } from "@/contexts/auth-context"
 import { SignInPopup } from "@/components/auth/sign-in-popup"
 import { useTRPCClient } from "@/lib/trpc/react"
+import { InfinityAiChat } from "@/components/infinity-ai/InfinityAiChat"
 
 interface Message {
   id: string
@@ -610,185 +611,21 @@ export function HeroSection() {
 
             {/* Right Content - AI Chat */}
             <div className="w-full max-w-xl mx-auto lg:mx-0">
-              <div
-                ref={chatContainerRef}
-                className={`relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl transition-all duration-500 ${isChatExpanded ? 'h-[500px]' : 'h-auto'
-                  } ${isFocused ? 'ring-2 ring-blue-500/50 border-blue-500/30' : ''}`}
-                onClick={handleContainerClick}
-              >
-                {/* Glow effect */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-purple-500/10 pointer-events-none" />
-
-                {/* Chat Header */}
-                <div className="relative flex items-center gap-3 px-6 py-4 border-b border-white/10 bg-white/5">
-                  <div className="relative">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
-                      <Sparkles className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-900" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-white">AI Career Advisor</h3>
-                    <p className="text-xs text-slate-400">Online • Ready to help</p>
-                  </div>
-                  <div className="ml-auto">
-                    <Badge variant="secondary" className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
-                      <Zap className="w-3 h-3 mr-1" />
-                      Powered by AI
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Chat Messages Area */}
-                {isChatExpanded && (
-                  <div className="h-[340px] overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                    {messages.map((message) => (
-                      <div key={message.id} className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        {message.type === 'ai' && (
-                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                            <Bot className="w-4 h-4 text-white" />
-                          </div>
-                        )}
-                        <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${message.type === 'user'
-                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-br-md'
-                            : 'bg-white/10 text-slate-200 rounded-bl-md'
-                          }`}>
-                          <p className="text-sm leading-relaxed">{message.content}</p>
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* AI Thinking */}
-                    {isAiTyping && !currentAiMessage && (
-                      <div className="flex gap-3 justify-start">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                          <Bot className="w-4 h-4 text-white" />
-                        </div>
-                        <div className="bg-white/10 text-slate-200 rounded-2xl rounded-bl-md px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm">Thinking</span>
-                            <div className="flex gap-1">
-                              {[0, 1, 2].map((i) => (
-                                <div key={i} className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Streaming text */}
-                    {isAiTyping && currentAiMessage && (
-                      <div className="flex gap-3 justify-start">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                          <Bot className="w-4 h-4 text-white" />
-                        </div>
-                        <div className="max-w-[80%] bg-white/10 text-slate-200 rounded-2xl rounded-bl-md px-4 py-3">
-                          <p className="text-sm leading-relaxed">
-                            {currentAiMessage}
-                            <span className="animate-pulse text-blue-400">|</span>
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Searching mentors */}
-                    {isSearchingMentors && (
-                      <div className="flex gap-3 justify-start">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                          <Search className="w-4 h-4 text-white animate-pulse" />
-                        </div>
-                        <div className="bg-white/10 text-slate-200 rounded-2xl rounded-bl-md px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm">Finding mentors for you</span>
-                            <div className="flex gap-1">
-                              {[0, 1, 2].map((i) => (
-                                <div key={i} className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div ref={chatEndRef} />
-                  </div>
-                )}
-
-                {/* Chat Input */}
-                <div className={`relative p-4 ${isChatExpanded ? 'border-t border-white/10 bg-white/5' : ''}`}>
-                  <div className="relative flex items-end gap-3">
-                    <div className="flex-1 relative">
-                      <textarea
-                        ref={textareaRef}
-                        placeholder=""
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        onFocus={() => setIsFocused(true)}
-                        onBlur={() => setIsFocused(false)}
-                        onKeyDown={handleKeyPress}
-                        rows={1}
-                        disabled={isAiTyping || isSearchingMentors || isChatLimitReached}
-                        className={`w-full bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 rounded-xl px-4 py-3.5 text-base resize-none transition-all ${isChatExpanded ? 'min-h-[44px]' : 'min-h-[56px] text-lg'
-                          } disabled:opacity-50`}
-                        style={{ scrollbarWidth: 'none' }}
-                      />
-                      {/* Animated placeholder */}
-                      {!inputValue && !isFocused && !isChatLimitReached && (
-                        <div className="absolute inset-0 flex items-center px-4 pointer-events-none">
-                          <span className={`text-slate-500 ${isChatExpanded ? 'text-base' : 'text-lg'}`}>
-                            {currentPlaceholder}
-                            <span className="animate-pulse text-blue-400">|</span>
-                          </span>
-                        </div>
-                      )}
-                      {isChatLimitReached && (
-                        <div className="absolute inset-0 flex items-center px-4 pointer-events-none">
-                          <span className="text-slate-500 text-sm">Connect with a mentor to continue your journey</span>
-                        </div>
-                      )}
-                    </div>
-                    {isChatLimitReached ? (
-                      <Button
-                        onClick={resetChat}
-                        className="h-12 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-sm shadow-lg shadow-blue-500/25 whitespace-nowrap"
-                      >
-                        New Chat
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={handleSubmit}
-                        disabled={!inputValue.trim() || isAiTyping || isSearchingMentors}
-                        className={`h-12 w-12 rounded-xl transition-all duration-300 ${inputValue.trim() && !isAiTyping && !isSearchingMentors
-                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg shadow-blue-500/25'
-                            : 'bg-white/10 text-slate-500'
-                          }`}
-                      >
-                        <Send className="w-5 h-5" />
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Hints */}
-                  {!isChatExpanded && (
-                    <div className="flex items-center justify-between mt-3 px-1">
-                      <span className="text-xs text-slate-500">Ask anything about your career</span>
-                      <span className="text-xs text-slate-500">Press Enter ↵</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <InfinityAiChat
+                variant="hero"
+                surface="landing_page"
+                showHistory={false}
+                onSignInClick={() => setShowSignInPopup(true)}
+              />
 
               {/* Feature pills below chat */}
-              {!isChatExpanded && (
-                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 mt-6">
-                  {['Career Advice', 'Resume Review', 'Interview Prep', 'Skill Roadmaps'].map((feature) => (
-                    <span key={feature} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-slate-400">
-                      {feature}
-                    </span>
-                  ))}
-                </div>
-              )}
+              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 mt-6">
+                {['Career Advice', 'Resume Review', 'Interview Prep', 'Skill Roadmaps'].map((feature) => (
+                  <span key={feature} className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-slate-400">
+                    {feature}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -985,6 +822,7 @@ export function HeroSection() {
       {/* Mentor Detail Modal */}
       <Dialog open={isMentorModalOpen} onOpenChange={setIsMentorModalOpen}>
         <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto p-0">
+          <DialogTitle className="sr-only">Mentor details</DialogTitle>
           {selectedMentorIdForModal && (
             <div className="pl-8 pr-12 pt-0 w-full mx-auto">
               <MentorDetailView
@@ -1004,6 +842,7 @@ export function HeroSection() {
       <SignInPopup
         isOpen={showSignInPopup}
         onClose={() => setShowSignInPopup(false)}
+        callbackUrl="/dashboard?section=chat"
       />
     </>
   )

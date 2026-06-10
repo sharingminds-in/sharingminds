@@ -43,6 +43,9 @@ export const sessionViewInputSchema = z.object({
 
 export const createBookingInputSchema = baseCreateBookingSchema.extend({
   bookingSource: z.enum(['default', 'ai', 'explore']).optional(),
+  aiConversationId: z.string().uuid().optional(),
+  aiRecommendationRunId: z.string().uuid().optional(),
+  aiMentorProfileId: z.string().uuid().optional(),
 });
 
 export const updateBookingInputSchema = z
