@@ -31,6 +31,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   isMentorWithIncompleteProfile: boolean;
+  isMenteeWithIncompleteProfile: boolean;
   isAdmin: boolean;
   isMentor: boolean;
   isMentee: boolean;
@@ -79,6 +80,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
   const isMentor = sessionData?.isMentor || false;
   const isMentee = sessionData?.isMentee || false;
   const isMentorWithIncompleteProfile = sessionData?.isMentorWithIncompleteProfile || false;
+  const isMenteeWithIncompleteProfile = sessionData?.isMenteeWithIncompleteProfile || false;
 
   const primaryRole = roles.find(role => role.name === 'mentor') ||
     roles.find(role => role.name === 'mentee') ||
@@ -157,6 +159,7 @@ function AuthProviderInner({ children }: AuthProviderProps) {
     isAuthenticated,
     isLoading: isLoading || signOutMutation.isPending || refreshSessionMutation.isPending,
     isMentorWithIncompleteProfile,
+    isMenteeWithIncompleteProfile,
     isAdmin,
     isMentor,
     isMentee,
