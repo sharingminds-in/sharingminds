@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { mentors } from '@/lib/db/schema';
+import { mentees, mentors } from '@/lib/db/schema';
 import { getUserWithRoles } from '@/lib/db/user-helpers';
 import { buildAccountAccessPolicySnapshot } from '@/lib/access-policy/account';
 import { resolveAccessPolicyRuntimeConfig } from '@/lib/access-policy/runtime-config';
@@ -38,6 +38,7 @@ export async function getSessionWithRoles(
       isMentor: false,
       isMentee: false,
       isMentorWithIncompleteProfile: false,
+      isMenteeWithIncompleteProfile: false,
     };
   }
 
@@ -116,6 +117,25 @@ export async function getSessionWithRoles(
       : null;
   }
 
+  const menteeProfile = isMentee
+    ? await db
+        .select({
+          currentRole: mentees.currentRole,
+          currentCompany: mentees.currentCompany,
+          education: mentees.education,
+          careerGoals: mentees.careerGoals,
+          currentSkills: mentees.currentSkills,
+          skillsToLearn: mentees.skillsToLearn,
+          interests: mentees.interests,
+          learningStyle: mentees.learningStyle,
+          preferredMeetingFrequency: mentees.preferredMeetingFrequency,
+        })
+        .from(mentees)
+        .where(eq(mentees.userId, session.user.id))
+        .limit(1)
+        .then(([row]) => row ?? null)
+    : null;
+
   const [mentorSubscription, menteeSubscription] = await Promise.all([
     isMentor
       ? resolveSubscriptionEntitlements(session.user.id, {
@@ -168,5 +188,16 @@ export async function getSessionWithRoles(
     isMentee,
     isMentorWithIncompleteProfile:
       isMentor && mentorProfile?.verificationStatus === 'IN_PROGRESS',
+    isMenteeWithIncompleteProfile:
+      isMentee &&
+      (!menteeProfile?.currentRole ||
+        !menteeProfile?.currentCompany ||
+        !menteeProfile?.education ||
+        !menteeProfile?.careerGoals ||
+        !menteeProfile?.currentSkills ||
+        !menteeProfile?.skillsToLearn ||
+        !menteeProfile?.interests ||
+        !menteeProfile?.learningStyle ||
+        !menteeProfile?.preferredMeetingFrequency),
   };
 }

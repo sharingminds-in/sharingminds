@@ -53,6 +53,7 @@ import {
   MentorFeaturePageGate,
   MentorVerificationNotice,
 } from '@/components/mentor/verification/mentor-verification-state';
+import { ProfileCompletionDialog } from '@/components/mentee/profile-completion-dialog';
 import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
 import {
@@ -160,6 +161,8 @@ export function DashboardExperience({
     isLoading,
     isAdmin,
     isMentor,
+    isMentee,
+    isMenteeWithIncompleteProfile,
     accountAccess,
     menteeAccess,
     mentorProfile,
@@ -503,75 +506,83 @@ export function DashboardExperience({
   }
 
   return (
-    <SidebarProvider>
-      <div
-        className={cn('flex w-full', shellBackgroundClassName, shellClasses.shell)}
-      >
-        {isAdmin ? (
-          <AdminSidebar
-            active={activeSection}
-            onChange={handleSectionChange}
-            navigationScope={navigationScope}
-          />
-        ) : isMentor ? (
-          <MentorSidebar
-            activeSection={activeSection}
-            onSectionChange={handleSectionChange}
-            navigationScope={navigationScope}
-          />
-        ) : (
-          <UserSidebar
-            activeSection={activeSection}
-            onSectionChange={handleSectionChange}
-            navigationScope={navigationScope}
-          />
-        )}
-
-        <SidebarInset
-          className={cn(
-            'relative flex flex-1 flex-col overflow-hidden',
-            shellClasses.inset
-          )}
+    <>
+      {isMentee && (
+        <ProfileCompletionDialog
+          open={isMenteeWithIncompleteProfile}
+          onCompleteProfile={() => handleSectionChange('profile')}
+        />
+      )}
+      <SidebarProvider>
+        <div
+          className={cn('flex w-full', shellBackgroundClassName, shellClasses.shell)}
         >
-          <Header showSidebarTrigger onSearchClick={handleSearchClick} />
+          {isAdmin ? (
+            <AdminSidebar
+              active={activeSection}
+              onChange={handleSectionChange}
+              navigationScope={navigationScope}
+            />
+          ) : isMentor ? (
+            <MentorSidebar
+              activeSection={activeSection}
+              onSectionChange={handleSectionChange}
+              navigationScope={navigationScope}
+            />
+          ) : (
+            <UserSidebar
+              activeSection={activeSection}
+              onSectionChange={handleSectionChange}
+              navigationScope={navigationScope}
+            />
+          )}
 
-          <main
+          <SidebarInset
             className={cn(
-              'flex min-h-0 flex-1 flex-col px-4 pb-6 pt-20 md:px-6 md:pt-24 lg:px-8',
-              shellClasses.main
+              'relative flex flex-1 flex-col overflow-hidden',
+              shellClasses.inset
             )}
           >
-            <AnimatePresence mode='wait'>
-              {showMentorVerificationNotice && (
-                <motion.div
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className='mb-8'
-                >
-                  <MentorVerificationNotice
-                    mentorProfile={mentorProfile}
-                    routeBasePath={routeBasePath}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <Header showSidebarTrigger onSearchClick={handleSearchClick} />
 
-            <AnimatePresence mode='wait'>
-              <motion.div
-                key={activeSection + (selectedMentor || '')}
-                initial='initial'
-                animate='in'
-                exit='out'
-                variants={pageVariants}
-                transition={pageTransition}
-                className={cn('flex h-full flex-1 flex-col', shellClasses.content)}
-              >
-                {renderDashboardContent()}
-              </motion.div>
-            </AnimatePresence>
-          </main>
-        </SidebarInset>
-      </div>
-    </SidebarProvider>
+            <main
+              className={cn(
+                'flex min-h-0 flex-1 flex-col px-4 pb-6 pt-20 md:px-6 md:pt-24 lg:px-8',
+                shellClasses.main
+              )}
+            >
+              <AnimatePresence mode='wait'>
+                {showMentorVerificationNotice && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className='mb-8'
+                  >
+                    <MentorVerificationNotice
+                      mentorProfile={mentorProfile}
+                      routeBasePath={routeBasePath}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence mode='wait'>
+                <motion.div
+                  key={activeSection + (selectedMentor || '')}
+                  initial='initial'
+                  animate='in'
+                  exit='out'
+                  variants={pageVariants}
+                  transition={pageTransition}
+                  className={cn('flex h-full flex-1 flex-col', shellClasses.content)}
+                >
+                  {renderDashboardContent()}
+                </motion.div>
+              </AnimatePresence>
+            </main>
+          </SidebarInset>
+        </div>
+      </SidebarProvider>
+    </>
   );
 }
